@@ -1,0 +1,6 @@
+/build/
+/out/
+/.work/
+
+# Personal execution plan (local only)
+/docs/TASKS.md
