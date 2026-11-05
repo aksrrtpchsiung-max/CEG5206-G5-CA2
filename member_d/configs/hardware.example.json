@@ -1,0 +1,13 @@
+{
+  "cpu": "TODO: exact model",
+  "isa": "TODO: selected common ISA",
+  "physical_cores": 0,
+  "cache_sizes": "TODO: L1/L2/L3",
+  "compiler": "TODO: name and version",
+  "compiler_flags": "TODO: all flags, including scalar-specific flags",
+  "affinity": "TODO: actual policy or unsupported",
+  "frequency_policy": "TODO: actual policy or uncontrolled",
+  "build_command": "TODO: exact command",
+  "peak_memory_verified": false,
+  "notes": "Template only; not a hardware measurement. Record unknown hardware policy explicitly, never invent it."
+}
