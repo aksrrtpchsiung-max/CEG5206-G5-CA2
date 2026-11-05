@@ -1,0 +1,52 @@
+cmake_minimum_required(VERSION 3.16)
+project(ceg5206_member_b LANGUAGES CXX)
+
+if(NOT TARGET ceg5206_contracts)
+  add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../member_a" member_a_contracts)
+endif()
+if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64|ARM64)$")
+  message(FATAL_ERROR "Member B implements AArch64 NEON; no scalar fallback is registered as SIMD")
+endif()
+if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+  message(FATAL_ERROR "Member B numerical flags require Clang or GCC")
+endif()
+
+option(B_SANITIZE "Enable ASan and UBSan (diagnostics only)" OFF)
+option(B_BUILD_PROBE "Build B's local tiling attribution probe" ON)
+add_library(ceg5206_b_policy INTERFACE)
+target_compile_options(ceg5206_b_policy INTERFACE
+  -Wall -Wextra -Wpedantic -fno-fast-math -ffp-contract=off)
+if(B_SANITIZE)
+  target_compile_options(ceg5206_b_policy INTERFACE
+    -fsanitize=address,undefined -fno-omit-frame-pointer)
+  target_link_options(ceg5206_b_policy INTERFACE -fsanitize=address,undefined)
+endif()
+add_library(ceg5206_b STATIC src/simd.cpp)
+target_link_libraries(ceg5206_b PUBLIC ceg5206_contracts PRIVATE ceg5206_b_policy)
+
+include(CTest)
+if(BUILD_TESTING)
+  find_package(Threads REQUIRED)
+  find_package(Python3 COMPONENTS Interpreter REQUIRED)
+  set(FIXTURE_HEADER "${CMAKE_CURRENT_BINARY_DIR}/generated/contract_fixture.hpp")
+  add_custom_command(OUTPUT "${FIXTURE_HEADER}"
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixture_header.py"
+      "${CMAKE_CURRENT_SOURCE_DIR}/../member_a/fixtures/contract_v0_1.json" "${FIXTURE_HEADER}"
+    DEPENDS tests/fixture_header.py ../member_a/fixtures/contract_v0_1.json VERBATIM)
+  add_executable(test_simd tests/test_simd.cpp "${FIXTURE_HEADER}")
+  target_include_directories(test_simd PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+  target_link_libraries(test_simd PRIVATE ceg5206_b ceg5206_b_policy Threads::Threads)
+  add_test(NAME member_b_simd_contract COMMAND test_simd)
+endif()
+
+if(B_BUILD_PROBE)
+  add_library(b_probe_scalar OBJECT bench/scalar.cpp)
+  target_link_libraries(b_probe_scalar PRIVATE ceg5206_contracts ceg5206_b_policy)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_options(b_probe_scalar PRIVATE -fno-vectorize -fno-slp-vectorize)
+  else()
+    target_compile_options(b_probe_scalar PRIVATE -fno-tree-vectorize)
+  endif()
+  add_executable(b_tiling_probe bench/probe.cpp bench/edge_major.cpp $<TARGET_OBJECTS:b_probe_scalar>)
+  target_link_libraries(b_tiling_probe PRIVATE ceg5206_b ceg5206_b_policy)
+endif()
