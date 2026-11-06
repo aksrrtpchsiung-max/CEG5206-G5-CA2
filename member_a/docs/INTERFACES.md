@@ -1,6 +1,6 @@
 # A / B / C / D 接口约定 v0.1
 
-状态：**A 的接口提案，供组员评审；尚未确认或冻结。** 当前只交付协议、声明与样例，不代表算法已经实现。源依据为根目录 `【F】Group5 Team Project Proposal.pdf`。下文“PDF 要求”来自原文；“v0.1 约定”是为可实现、可联调而补充的决定。冲突应通过共同修订处理，不能各自改一份头文件。
+v0.1 已由 A 实现，并与 B、C、D 当前公开的实现完成联调。团队正式冻结仍待成员确认。下文“PDF 要求”来自 `【F】Group5 Team Project Proposal.pdf`，“v0.1 约定”是为联调补充的工程决定。构建方式、实际测试范围与版本见[使用说明](A_USAGE.md)和[贡献记录](CONTRIBUTIONS.md)。
 
 ## 1. 范围与交付关系
 
@@ -246,9 +246,9 @@ PDF 第 3 页要求，D 负责实现：
 | 需要确认 | 负责人 | 当前状态 |
 |---|---|---|
 | 共用本头文件、CSR 方向、数据类型、overwrite 与数值策略 | A/B/C/D | 提案已写，待共同确认 |
-| SIMD ISA、可用工具链、FMA policy 与安全尾部 | B/D | 未决定；不阻碍数据接口评审 |
+| SIMD ISA、可用工具链、FMA policy 与安全尾部 | B/D | B 实现 AArch64 NEON，A 用 GCC、关闭 contraction 验证了尾部；正式实验机由团队选定 |
 | RowRangeFn、split layout、确定性 merge、prepare/state 生命周期 | B/C | 提案已写，待确认 |
 | 生成器细节、seed、日志字段、预算和计时边界 | A/D | 提案已写，待确认 |
-| 在支持 C++17 的机器 compile / link 并运行交接样例 | 各实现所有者，D 集成 | 未执行；本仓库当前只有声明 |
+| C++17 编译、链接与交接样例 | 各实现所有者，D 集成 | A 的原生测试及 ARM 模拟联调通过，D 的 48 个 smoke 用例完成 |
 
 通过评审后以同一 commit 中的头文件和文档为准。修改类型、布局、输出语义或随机序列时升级 contract / generator version，并重跑所有成员的交接测试。PDF 第 4 页要求 Week 8 对主实现细节达成一致；此处不假设团队已经批准。
