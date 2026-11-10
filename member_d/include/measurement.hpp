@@ -7,6 +7,9 @@
 #include <limits>
 #include <stdexcept>
 #include <vector>
+#ifdef CEG5206_D_DIAGNOSTICS
+#include "d_profile.hpp"
+#endif
 
 namespace member_d {
 using Clock = std::chrono::steady_clock;
@@ -35,24 +38,49 @@ inline double quantile(std::vector<double> values, double q) {
 struct Samples {
     std::vector<double> seconds;
     double checksum = 0;
+    unsigned batch_groups = 1, reuse_calls = 1;
+    std::vector<double> sequence_seconds;
+#ifdef CEG5206_D_DIAGNOSTICS
+    std::vector<profile::Snapshot> diagnostics;
+#endif
 };
 inline Samples measure(ceg5206::PreparedKernel& kernel, ceg5206::CsrView graph,
                        const std::vector<ceg5206::DenseConstView>& inputs,
                        ceg5206::DenseView y, const ceg5206::RunConfig& cfg,
-                       unsigned warmup, unsigned repetitions) {
-    if (!kernel.run || inputs.size() != 2 || warmup < 5 || repetitions < 10)
+                       unsigned warmup, unsigned repetitions,
+                       unsigned reuse_calls = 1, double batch_min_seconds = 0) {
+    if (!kernel.run || inputs.size() != 2 || warmup < 5 || repetitions < 10 || !reuse_calls || batch_min_seconds < 0)
         throw std::invalid_argument("need a real kernel, two inputs, >=5 warmups and >=10 repetitions");
     for (unsigned i = 0; i < warmup; ++i)
         kernel.run(graph, inputs[i % 2], y, cfg, kernel.state.get());
     Samples result;
     result.seconds.reserve(repetitions);
-    // Each repetition is one complete call. No clearing outside this interval.
+    result.reuse_calls = reuse_calls;
+    // Calibration is outside recorded samples; every group contains exactly R calls.
+    if (batch_min_seconds > 0) {
+        for (;;) {
+            const auto start = Clock::now();
+            for (unsigned j = 0; j < result.batch_groups * reuse_calls; ++j)
+                kernel.run(graph, inputs[j % 2], y, cfg, kernel.state.get());
+            if (std::chrono::duration<double>(Clock::now() - start).count() >= batch_min_seconds ||
+                result.batch_groups >= 1024) break;
+            result.batch_groups *= 2;
+        }
+    }
+    const unsigned batch_calls = result.batch_groups * reuse_calls;
     for (unsigned i = 0; i < repetitions; ++i) {
         const auto start = Clock::now();
-        kernel.run(graph, inputs[i % 2], y, cfg, kernel.state.get());
+        for (unsigned j = 0; j < batch_calls; ++j)
+            kernel.run(graph, inputs[(std::uint64_t(i) * batch_calls + j) % 2], y, cfg, kernel.state.get());
         const auto end = Clock::now();
-        result.seconds.push_back(std::chrono::duration<double>(end - start).count());
-        // Observe every output after timing. This also gives a consistent warm-start protocol.
+        const double elapsed = std::chrono::duration<double>(end - start).count();
+        result.seconds.push_back(elapsed / batch_calls);
+        result.sequence_seconds.push_back(elapsed / result.batch_groups);
+#ifdef CEG5206_D_DIAGNOSTICS
+        result.diagnostics.push_back(profile::data);
+#endif
+        // Observe the final output outside each batch. Calls cannot be optimized
+        // away: factories/function pointers are compiled without LTO.
         for (std::size_t k = 0; k < y.values.size; ++k) {
             if (!std::isfinite(y.values.data[k]))
                 throw std::runtime_error("non-finite timed output");

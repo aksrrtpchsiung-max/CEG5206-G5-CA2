@@ -1,0 +1,35 @@
+test_default_binary_cannot_produce_fake_results (test_entry.EntryTests) ... ok
+test_impossible_skew_rejected (test_entry.EntryTests) ... ok
+test_linked_fixture_end_to_end (test_entry.EntryTests) ... ok
+test_main_has_24_workloads_per_variant (test_entry.EntryTests) ... ok
+test_scaling_example (test_entry.EntryTests) ... ok
+test_summary_requires_matching_inputs (test_entry.EntryTests) ... ok
+test_tuning_and_reuse_are_plans (test_entry.EntryTests) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.694s
+
+OK
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /Users/junboxia/Documents/ChatGPT/5206/CEG5206-G5-CA2/member_d/build/team
+[  2%] Building CXX object CMakeFiles/test_allocation.dir/tests/test_allocation.cpp.o
+[  8%] Building CXX object CMakeFiles/test_measurement.dir/tests/test_measurement.cpp.o
+[  8%] Built target d_scalar
+[ 11%] Building CXX object CMakeFiles/test_allocation.dir/src/allocation_tracker.cpp.o
+[ 31%] Built target ceg5206_a
+[ 62%] Built target benchmark
+[ 65%] Linking CXX executable test_allocation
+[ 97%] Built target benchmark_profile
+[ 97%] Built target test_allocation
+[100%] Linking CXX executable test_measurement
+[100%] Built target test_measurement
+Test project /Users/junboxia/Documents/ChatGPT/5206/CEG5206-G5-CA2/member_d/build/team
+    Start 1: measurement
+1/2 Test #1: measurement ......................   Passed    0.26 sec
+    Start 2: allocation
+2/2 Test #2: allocation .......................   Passed    0.27 sec
+
+100% tests passed out of 2
+
+Total Test time (real) =   0.53 sec

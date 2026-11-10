@@ -9,6 +9,9 @@
 #include <string>
 #include <utility>
 #include <vector>
+#ifdef CEG5206_D_DIAGNOSTICS
+#include "d_profile.hpp"
+#endif
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -72,32 +75,50 @@ void validate_prepare(CsrView graph, FeatureCount f, const RunConfig& config) {
 
 void run_static(CsrView graph, DenseConstView x, DenseView y,
                 const RunConfig& config, KernelState*) {
+#ifdef CEG5206_D_DIAGNOSTICS
+    member_d::profile::reset(config.threads); member_d::profile::begin();
+#endif
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) num_threads(config.threads)
 #endif
     for (std::int64_t signed_row = 0;
          signed_row < static_cast<std::int64_t>(graph.n); ++signed_row) {
         const auto row = static_cast<NodeId>(signed_row);
+#ifdef CEG5206_D_DIAGNOSTICS
+        member_d::profile::edges(graph.row_ptr.data[row + 1] - graph.row_ptr.data[row]);
+#endif
         b::row_range_simd(
             graph, x, row, graph.row_ptr.data[row], graph.row_ptr.data[row + 1],
             {y.values.data + static_cast<std::size_t>(row) * x.f, x.f},
             config.tile_features);
     }
+#ifdef CEG5206_D_DIAGNOSTICS
+    member_d::profile::end(member_d::profile::data.aggregation);
+#endif
 }
 
 void run_dynamic(CsrView graph, DenseConstView x, DenseView y,
                  const RunConfig& config, KernelState*) {
+#ifdef CEG5206_D_DIAGNOSTICS
+    member_d::profile::reset(config.threads); member_d::profile::begin();
+#endif
 #ifdef _OPENMP
 #pragma omp parallel for schedule(dynamic, 1) num_threads(config.threads)
 #endif
     for (std::int64_t signed_row = 0;
          signed_row < static_cast<std::int64_t>(graph.n); ++signed_row) {
         const auto row = static_cast<NodeId>(signed_row);
+#ifdef CEG5206_D_DIAGNOSTICS
+        member_d::profile::edges(graph.row_ptr.data[row + 1] - graph.row_ptr.data[row]);
+#endif
         b::row_range_simd(
             graph, x, row, graph.row_ptr.data[row], graph.row_ptr.data[row + 1],
             {y.values.data + static_cast<std::size_t>(row) * x.f, x.f},
             config.tile_features);
     }
+#ifdef CEG5206_D_DIAGNOSTICS
+    member_d::profile::end(member_d::profile::data.aggregation);
+#endif
 }
 
 struct SplitState final : KernelState {
@@ -195,6 +216,9 @@ void run_split(CsrView graph, DenseConstView x, DenseView y,
                const RunConfig& config, KernelState* base_state) {
     auto* state = static_cast<SplitState*>(base_state);
 
+#ifdef CEG5206_D_DIAGNOSTICS
+    member_d::profile::reset(config.threads); member_d::profile::begin();
+#endif
     // Only empty and split rows require initialization. Unsplit rows are fully
     // overwritten by B's row-range kernel.
 #ifdef _OPENMP
@@ -209,6 +233,9 @@ void run_split(CsrView graph, DenseConstView x, DenseView y,
         }
     }
 
+#ifdef CEG5206_D_DIAGNOSTICS
+    member_d::profile::end(member_d::profile::data.initialization); member_d::profile::begin();
+#endif
     // The loop index is a logical worker bin, so all bins execute even if an
     // OpenMP runtime chooses fewer physical threads than requested.
 #ifdef _OPENMP
@@ -225,11 +252,17 @@ void run_split(CsrView graph, DenseConstView x, DenseView y,
                 ? y.values.data + static_cast<std::size_t>(chunk.row) * x.f
                 : state->partials.data() +
                       static_cast<std::size_t>(chunk.partial_slot) * x.f;
+#ifdef CEG5206_D_DIAGNOSTICS
+            member_d::profile::edges(chunk.edge_end - chunk.edge_begin);
+#endif
             b::row_range_simd(graph, x, chunk.row, chunk.edge_begin, chunk.edge_end,
                               {destination, x.f}, config.tile_features);
         }
     }
 
+#ifdef CEG5206_D_DIAGNOSTICS
+    member_d::profile::end(member_d::profile::data.aggregation); member_d::profile::begin();
+#endif
     // A single owner handles each split row and merges descriptor-order partials.
 #ifdef _OPENMP
 #pragma omp parallel for schedule(static) num_threads(config.threads)
@@ -252,6 +285,9 @@ void run_split(CsrView graph, DenseConstView x, DenseView y,
             }
         }
     }
+#ifdef CEG5206_D_DIAGNOSTICS
+    member_d::profile::end(member_d::profile::data.merge);
+#endif
 }
 
 PreparedKernel prepare_rows(CsrView graph, FeatureCount f, const RunConfig& config,

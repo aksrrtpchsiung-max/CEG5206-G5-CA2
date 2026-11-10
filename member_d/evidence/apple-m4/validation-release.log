@@ -1,0 +1,48 @@
+-- The CXX compiler identification is AppleClang 17.0.0.17000013
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found Python3: /Users/junboxia/miniconda3/bin/python3.13 (found version "3.13.12") found components: Interpreter
+-- Found OpenMP_CXX: -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include (found version "5.1")
+-- Found OpenMP: TRUE (found version "5.1")
+-- Configuring done (0.5s)
+-- Generating done (0.0s)
+-- Build files have been written to: /Users/junboxia/Documents/ChatGPT/5206/CEG5206-G5-CA2/member_d/build/checks/a
+[ 26%] Building CXX object CMakeFiles/ceg5206_a.dir/src/csr.cpp.o
+[ 26%] Building CXX object CMakeFiles/ceg5206_a.dir/src/oracle.cpp.o
+[ 26%] Building CXX object CMakeFiles/ceg5206_a.dir/src/validation.cpp.o
+[ 26%] Building CXX object CMakeFiles/ceg5206_a.dir/src/scalar.cpp.o
+[ 33%] Building CXX object CMakeFiles/ceg5206_a.dir/src/generator.cpp.o
+[ 40%] Building CXX object CMakeFiles/ceg5206_a.dir/src/chunk_audit.cpp.o
+[ 46%] Linking CXX static library libceg5206_a.a
+[ 46%] Built target ceg5206_a
+[ 53%] Generating fixture.hpp
+[ 80%] Building CXX object tests/CMakeFiles/a_correctness.dir/test_kernels.cpp.o
+[ 80%] Building CXX object tests/CMakeFiles/a_correctness.dir/main.cpp.o
+[ 80%] Building CXX object tests/CMakeFiles/a_correctness.dir/test_inputs.cpp.o
+[ 80%] Building CXX object tests/CMakeFiles/a_correctness.dir/grid.cpp.o
+[ 86%] Building CXX object tests/CMakeFiles/a_correctness.dir/Users/junboxia/Documents/ChatGPT/5206/CEG5206-G5-CA2/member_b/src/simd.cpp.o
+[ 93%] Building CXX object tests/CMakeFiles/a_correctness.dir/Users/junboxia/Documents/ChatGPT/5206/CEG5206-G5-CA2/member_c/src/contract_adapter.cpp.o
+[100%] Linking CXX executable a_correctness
+[100%] Built target a_correctness
+Test project /Users/junboxia/Documents/ChatGPT/5206/CEG5206-G5-CA2/member_d/build/checks/a
+    Start 1: a_validation
+1/7 Test #1: a_validation .....................   Passed    0.27 sec
+    Start 2: a_generator
+2/7 Test #2: a_generator ......................   Passed    0.00 sec
+    Start 3: a_comparison
+3/7 Test #3: a_comparison .....................   Passed    0.00 sec
+    Start 4: a_chunks
+4/7 Test #4: a_chunks .........................   Passed    0.00 sec
+    Start 5: a_handoff
+5/7 Test #5: a_handoff ........................   Passed    0.01 sec
+    Start 6: a_variants
+6/7 Test #6: a_variants .......................   Passed    0.01 sec
+    Start 7: a_hub
+7/7 Test #7: a_hub ............................   Passed    0.07 sec
+
+100% tests passed out of 7
+
+Total Test time (real) =   0.37 sec

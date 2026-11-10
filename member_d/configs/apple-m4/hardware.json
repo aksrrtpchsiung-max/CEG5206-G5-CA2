@@ -1,0 +1,26 @@
+{
+  "cpu": "Apple M4",
+  "isa": "AArch64 NEON FP32, default AppleClang arm64 target",
+  "physical_cores": 10,
+  "performance_cores": 4,
+  "efficiency_cores": 6,
+  "memory_bytes": 25769803776,
+  "cache_sizes": {
+    "P_L1I_KiB": 192,
+    "P_L1D_KiB": 128,
+    "P_L2_shared_MiB": 16,
+    "E_L1I_KiB": 128,
+    "E_L1D_KiB": 64,
+    "E_L2_shared_MiB": 4
+  },
+  "compiler": "Apple clang 17.0.0 (clang-1700.0.13.3)",
+  "compiler_flags": "-O3 -DNDEBUG -fno-fast-math -ffp-contract=off; scalar additionally -fno-vectorize -fno-slp-vectorize; OpenMP: -Xpreprocessor -fopenmp",
+  "affinity": "OS controlled, OMP_PROC_BIND=FALSE; no hard P/E core pinning",
+  "frequency_policy": "OS controlled; no frequency lock; low power mode disabled",
+  "build_command": "bash member_d/scripts/build_team.sh",
+  "openmp": "Homebrew libomp 23.1.1",
+  "cmake": "4.4.3",
+  "os": "macOS 15.7.7 (24G720)",
+  "initial_power_source": "Battery power, low power mode disabled",
+  "notes": "Physical-core scaling includes heterogeneous P/E cores. C++ allocation high-water and getrusage RSS are recorded per case. Allocation tracker is active in both production and diagnostic executables; algorithm run paths allocate no C++ workspace."
+}

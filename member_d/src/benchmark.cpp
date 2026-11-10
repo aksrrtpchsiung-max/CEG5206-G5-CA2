@@ -1,4 +1,5 @@
 #include "measurement.hpp"
+#include "allocation_tracker.hpp"
 #include <array>
 #include <cstdlib>
 #include <iomanip>
@@ -6,7 +7,18 @@
 #include <string>
 
 using namespace ceg5206;
+#ifdef D_ENABLE_EDGE_MAJOR
+namespace b_probe {
+void edge_major(CsrView, DenseConstView, DenseView, const RunConfig&, KernelState*);
+}
+#endif
 namespace {
+#ifdef D_ENABLE_EDGE_MAJOR
+PreparedKernel prepare_edge_major(CsrView, FeatureCount, const RunConfig& cfg) {
+    if (cfg.threads != 1) throw std::invalid_argument("edge_major requires one thread");
+    PreparedKernel k; k.run = b_probe::edge_major; return k;
+}
+#endif
 struct Entry { const char* name; PrepareFn prepare; };
 const Entry entries[] = {
     {"scalar",
@@ -44,6 +56,9 @@ const Entry entries[] = {
      nullptr
 #endif
     }
+#ifdef D_ENABLE_EDGE_MAJOR
+    ,{"edge_major", prepare_edge_major}
+#endif
 };
 #ifdef D_ENABLE_A
 template<class T> void hash_vector(std::uint64_t& h, const std::vector<T>& values) {
@@ -68,7 +83,7 @@ void require(ValidationResult result) {
     if (!result.ok()) throw std::runtime_error("validation: " + result.message);
 }
 void real_run(int argc, char** argv, const Entry& entry) {
-    if (argc != 15) throw std::invalid_argument("internal invocation requires 14 arguments; use scripts/run.py");
+    if (argc != 15 && argc != 17) throw std::invalid_argument("internal invocation requires 14 arguments; use scripts/run.py");
     const std::string family(argv[2]);
     if (family != "uniform" && family != "skewed") throw std::invalid_argument("invalid graph family");
     const auto n = number(argv[3]), m = number(argv[4]);
@@ -78,10 +93,12 @@ void real_run(int argc, char** argv, const Entry& entry) {
     const RunConfig cfg{number32(argv[9]), number32(argv[10]), number(argv[11])};
     const auto warmup = number32(argv[12]), repetitions = number32(argv[13]);
     const auto budget = number(argv[14]);
+    const auto reuse_calls = argc == 17 ? number32(argv[15]) : 1;
+    const double batch_min = argc == 17 ? number(argv[16]) / 1000.0 : 0;
     if (!f || !cfg.threads || !cfg.tile_features || !cfg.max_chunk_edges || n > UINT32_MAX ||
         warmup < 5 || repetitions < 10 || !budget)
         throw std::invalid_argument("invalid dimensions, run config, or timing protocol");
-    if ((std::string(entry.name) == "scalar" || std::string(entry.name) == "simd") && cfg.threads != 1)
+    if ((std::string(entry.name) == "scalar" || (std::string(entry.name) == "simd" || std::string(entry.name) == "edge_major")) && cfg.threads != 1)
         throw std::invalid_argument("scalar/simd require one thread");
     const auto elements = member_d::mul(n, f);
     if (elements > SIZE_MAX / sizeof(double)) throw std::overflow_error("host allocation overflow");
@@ -113,9 +130,16 @@ void real_run(int argc, char** argv, const Entry& entry) {
     const std::vector<DenseConstView> inputs{{n, f, {x0.data(), x0.size()}}, {n, f, {x1.data(), x1.size()}}};
     const DenseView output{n, f, {y.data(), y.size()}};
     for (auto x : inputs) require(a::validate_problem(graph.view(), x, output));
-    const auto start = member_d::Clock::now();
-    auto prepared = entry.prepare(graph.view(), f, cfg);
-    const double prep_seconds = std::chrono::duration<double>(member_d::Clock::now() - start).count();
+    PreparedKernel prepared;
+    std::vector<double> preparation_samples;
+    preparation_samples.reserve(10);
+    for (unsigned trial = 0; trial < 10; ++trial) {
+        prepared = {};
+        const auto start = member_d::Clock::now();
+        prepared = entry.prepare(graph.view(), f, cfg);
+        preparation_samples.push_back(std::chrono::duration<double>(member_d::Clock::now() - start).count());
+    }
+    const double prep_seconds = member_d::quantile(preparation_samples, .5);
     if (!prepared.run) throw std::runtime_error("prepare returned null run");
     const auto workspace = member_d::add(prepared.workspace.descriptors, member_d::add(prepared.workspace.partials, prepared.workspace.other));
     const auto retained_validation = member_d::add(base_bytes, member_d::add(workspace, member_d::add(edge_bytes, member_d::mul(elements, sizeof(double)))));
@@ -142,11 +166,14 @@ void real_run(int argc, char** argv, const Entry& entry) {
     const auto degree = a::degree_stats(graph.view());
     std::vector<double>().swap(reference);
     std::vector<WeightedEdge>().swap(generated.oracle_edges);
-    const auto samples = member_d::measure(prepared, graph.view(), inputs, output, cfg, warmup, repetitions);
+    const auto samples = member_d::measure(prepared, graph.view(), inputs, output, cfg, warmup, repetitions, reuse_calls, batch_min);
+    if (member_d::allocation::peak() > budget) throw std::runtime_error("C++ allocation peak exceeds budget");
     const auto median = member_d::quantile(samples.seconds, .5);
     std::cout << std::setprecision(17) << "{\"contract_version\":\"" << kContractVersion
               << "\",\"input_digest_algorithm\":\"fnv1a64-native-v1\",\"input_digest\":\"" << input_digest
-              << "\",\"validation\":[";
+              << "\",\"preparation_seconds\":[";
+    for (std::size_t i = 0; i < preparation_samples.size(); ++i) { if (i) std::cout << ","; std::cout << preparation_samples[i]; }
+    std::cout << "],\"validation\":[";
     for (unsigned i = 0; i < 2; ++i) {
         if (i) std::cout << ',';
         const auto& c = checks[i];
@@ -163,12 +190,14 @@ void real_run(int argc, char** argv, const Entry& entry) {
     std::cout << "],\"calls\":[";
     for (std::size_t i = 0; i < samples.seconds.size(); ++i) {
         if (i) std::cout << ',';
-        std::cout << "{\"repetition\":" << i << ",\"batch_calls\":1,\"feature_seed\":" << seeds[i % 2]
-                  << ",\"call_seconds\":" << samples.seconds[i] << '}';
+        std::cout << "{\"repetition\":" << i << ",\"batch_calls\":" << samples.batch_groups * reuse_calls << ",\"batch_groups\":" << samples.batch_groups << ",\"reuse_calls\":" << reuse_calls << ",\"feature_seed\":" << seeds[(i * samples.batch_groups * reuse_calls) % 2]
+                  << ",\"sequence_seconds\":" << samples.sequence_seconds[i] << ",\"call_seconds\":" << samples.seconds[i] << '}';
     }
     std::cout << "],\"summary\":{\"median_seconds\":" << median << ",\"iqr_seconds\":"
               << member_d::quantile(samples.seconds, .75) - member_d::quantile(samples.seconds, .25)
               << ",\"nominal_gflops\":" << (median > 0 ? 2.0 * m * f / (1e9 * median) : 0)
+              << ",\"median_sequence_seconds\":" << member_d::quantile(samples.sequence_seconds, .5)
+              << ",\"reuse_total_seconds\":" << generated.timings.weight_preparation_seconds + generated.timings.csr_construction_seconds + prep_seconds + member_d::quantile(samples.sequence_seconds, .5)
               << ",\"checksum\":" << samples.checksum << "},\"setup_memory\":{\"graph_sampling_seconds\":" << generated.timings.sampling_seconds
               << ",\"weight_preparation_seconds\":" << generated.timings.weight_preparation_seconds
               << ",\"csr_construction_seconds\":" << generated.timings.csr_construction_seconds
@@ -177,10 +206,24 @@ void real_run(int argc, char** argv, const Entry& entry) {
               << ",\"feature_bytes\":" << feature_bytes << ",\"output_bytes\":" << member_d::allocated(y)
               << ",\"descriptor_bytes\":" << prepared.workspace.descriptors << ",\"partial_bytes\":" << prepared.workspace.partials
               << ",\"other_workspace_bytes\":" << prepared.workspace.other << ",\"validation_retained_bytes\":" << validation_bytes
+              << ",\"cpp_allocation_peak_bytes\":" << member_d::allocation::peak()
+              << ",\"process_peak_rss_bytes\":" << member_d::allocation::rss_peak()
               << ",\"performance_retained_bytes\":" << member_d::add(base_bytes, workspace)
               << "},\"degree\":{\"degree_min\":" << degree.min << ",\"degree_max\":" << degree.max
               << ",\"degree_mean\":" << degree.mean << ",\"degree_median\":" << degree.median
-              << ",\"degree_p90\":" << degree.p90 << ",\"degree_p99\":" << degree.p99 << ",\"empty_rows\":" << degree.empty_rows << "}}\n";
+              << ",\"degree_p90\":" << degree.p90 << ",\"degree_p99\":" << degree.p99 << ",\"empty_rows\":" << degree.empty_rows << "}";
+#ifdef CEG5206_D_DIAGNOSTICS
+    std::cout << ",\"diagnostics\":[";
+    for (std::size_t i = 0; i < samples.diagnostics.size(); ++i) {
+        if (i) std::cout << ",";
+        const auto& d = samples.diagnostics[i];
+        std::cout << "{\"initialization_seconds\":" << d.initialization << ",\"aggregation_seconds\":" << d.aggregation << ",\"merge_seconds\":" << d.merge << ",\"worker_edges\":[";
+        for (std::size_t j = 0; j < d.worker_edges.size(); ++j) { if (j) std::cout << ","; std::cout << d.worker_edges[j]; }
+        std::cout << "]}";
+    }
+    std::cout << "]";
+#endif
+    std::cout << "}\n";
 }
 #endif
 } // namespace
@@ -188,7 +231,7 @@ int main(int argc, char** argv) {
     try {
         if (argc == 2 && std::string(argv[1]) == "--list") {
             std::cout << '[';
-            for (unsigned i = 0; i < 5; ++i) {
+            for (unsigned i = 0; i < sizeof(entries) / sizeof(entries[0]); ++i) {
                 if (i) std::cout << ',';
                 std::cout << "{\"variant\":\"" << entries[i].name << "\",\"available\":" << (entries[i].prepare ? "true" : "false") << '}';
             }

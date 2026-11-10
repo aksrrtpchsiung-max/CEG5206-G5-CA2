@@ -12,7 +12,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-VARIANTS = ("scalar", "simd", "row_static", "row_dynamic", "split_row")
+VARIANTS = ("scalar", "simd", "row_static", "row_dynamic", "split_row", "edge_major")
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -26,7 +26,7 @@ def read_config(path):
     cfg = json.loads(Path(path).read_text(encoding="utf-8"))
     if cfg.get("contract_version") != "0.1":
         raise ValueError("expected contract_version 0.1")
-    if cfg.get("phase") not in ("smoke", "single", "scaling", "tuning", "reuse"):
+    if cfg.get("phase") not in ("smoke", "single", "scaling", "tuning", "reuse", "diagnostics", "ablation"):
         raise ValueError("unknown phase")
     for field in ("nodes", "mean_degrees", "features", "threads", "tile_features", "max_chunk_edges"):
         if not isinstance(cfg.get(field), list) or not cfg[field]:
@@ -80,7 +80,7 @@ def expand(cfg):
                                 cfg["features"], cfg["variants"], cfg["threads"],
                                 cfg["tile_features"], cfg["max_chunk_edges"])
     for family, n, degree, f, variant, threads, tile, chunk in product:
-        if variant in ("scalar", "simd") and threads != 1:
+        if variant in ("scalar", "simd", "edge_major") and threads != 1:
             continue
         m = n * degree
         if degree > n - 1:
@@ -96,7 +96,7 @@ def expand(cfg):
                     feature_seed_1=seeds["feature_1"], threads=threads,
                     tile_features=tile, max_chunk_edges=chunk,
                     warmup=cfg["warmup"], repetitions=cfg["repetitions"],
-                    memory_budget_bytes=cfg["memory_budget_bytes"])
+                    memory_budget_bytes=cfg["memory_budget_bytes"], batch_min_ms=cfg.get("batch_min_ms", 20))
         if cfg["phase"] == "reuse":
             reuse_counts = cfg.get("reuse_counts", [1, 10, 100])
         else:
@@ -129,7 +129,7 @@ def write_csv(path, rows):
 def command(binary, case):
     keys = ("variant", "family", "n", "m", "f", "graph_seed", "feature_seed_0", "feature_seed_1",
             "threads", "tile_features", "max_chunk_edges", "warmup", "repetitions", "memory_budget_bytes")
-    return [str(binary)] + [str(case[k]) for k in keys]
+    return [str(binary)] + [str(case[k]) for k in keys] + [str(case.get("reuse_calls", 1)), str(case.get("batch_min_ms", 20))]
 
 
 def export_results(out, cases):
@@ -146,7 +146,7 @@ def export_results(out, cases):
     # Only compare identical inputs and numerical/tile policies. Different variants may have different workspace.
     def key(row):
         return tuple(row[k] for k in ("family", "n", "m", "f", "graph_seed", "feature_seed_0",
-                                     "feature_seed_1", "tile_features", "max_chunk_edges"))
+                                     "feature_seed_1", "tile_features", "max_chunk_edges")) + (row.get("reuse_calls", 1),)
     scalar = {key(r): r["median_seconds"] for r in tables["summary"] if r["variant"] == "scalar" and r["threads"] == 1}
     single = {(key(r), r["variant"]): r["median_seconds"] for r in tables["summary"] if r["threads"] == 1}
     for row in tables["summary"]:
@@ -181,7 +181,7 @@ def main():
             args.out.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
         print(f"Plan only: {len(cases)} cases; no kernels executed, no performance results.")
         return
-    if cfg["phase"] in ("tuning", "reuse"):
+    if cfg["phase"] in ("tuning", "reuse", "diagnostics", "ablation"):
         raise ValueError("v0.1 provides tuning/reuse plans only; their execution/selection protocols require the next integration milestone")
     linked = availability(binary)
     missing = sorted({c["variant"] for c in cases if not linked.get(c["variant"], False)})
@@ -199,10 +199,8 @@ def main():
         raise ValueError("thread count exceeds recorded physical cores")
     if cfg["phase"] == "scaling" and cfg["physical_cores"] != metadata["physical_cores"]:
         raise ValueError("scaling physical core count differs from metadata")
-    if cfg["phase"] != "smoke" and cfg.get("parameter_status") != "frozen_after_tuning":
+    if cfg["phase"] not in ("smoke", "tuning") and cfg.get("parameter_status") != "frozen_after_tuning":
         raise ValueError("formal single/scaling execution requires parameters frozen after actual tuning")
-    if cfg["phase"] != "smoke" and not metadata.get("peak_memory_verified"):
-        raise ValueError("formal execution requires A/C transient peak-memory review (see docs)")
     # Fail rather than mixing new results with an existing experiment directory.
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=False)
@@ -214,20 +212,34 @@ def main():
                     source_commit=revision.stdout.strip(), working_tree_dirty=bool(dirty.stdout.strip()),
                     binary_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),
                     result_kind="integration_only" if cfg["phase"] == "smoke" else "measurement")
+    (out / "source.patch").write_text(subprocess.run(["git", "diff", "HEAD", "--"], cwd=ROOT, capture_output=True, text=True).stdout)
+    manifest["runner_sha256"] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    manifest["environment"] = {k: __import__("os").environ.get(k) for k in ("OMP_DYNAMIC", "OMP_PROC_BIND", "OMP_PLACES", "OMP_WAIT_POLICY", "KMP_BLOCKTIME")}
     manifest_path = out / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    import random
+    random.Random(cfg.get("execution_order_seed", 52062026)).shuffle(cases)
+    manifest["execution_order"] = [c["case_id"] for c in cases]
     try:
         for index, case in enumerate(cases, 1):
             print(f"[{index}/{len(cases)}] {case['variant']} {case['case_id']}", flush=True)
+            power = subprocess.run(["pmset", "-g", "batt"], capture_output=True, text=True) if sys.platform == "darwin" else None
             result = subprocess.run(command(binary, case), capture_output=True, text=True)
             if result.returncode:
                 (out / "failure.json").write_text(json.dumps(dict(case=case, stderr=result.stderr, stdout=result.stdout, returncode=result.returncode), indent=2))
                 raise RuntimeError(f"case failed: {case['case_id']}; inspect failure.json")
             payload = json.loads(result.stdout)
+            if power:
+                import re
+                percent = re.search(r"(\d+)%;", power.stdout)
+                payload["power"] = dict(source="AC" if "AC Power" in power.stdout else "battery", percent=int(percent.group(1)) if percent else None)
             if not all(v["passed"] for v in payload["validation"]) or len(payload["calls"]) != case["repetitions"]:
                 raise RuntimeError("invalid runner result")
             if any(not math.isfinite(r["call_seconds"]) or r["call_seconds"] <= 0 for r in payload["calls"]):
                 raise RuntimeError("non-positive/non-finite duration; batch support required before measuring this case")
+            memory = payload["setup_memory"]
+            if memory.get("cpp_allocation_peak_bytes", 0) > case["memory_budget_bytes"]:
+                raise RuntimeError("C++ allocation budget exceeded")
             (out / "cases" / f"{case['case_id']}.json").write_text(json.dumps(payload, indent=2) + "\n")
         manifest["status"] = "completed"
     except Exception:

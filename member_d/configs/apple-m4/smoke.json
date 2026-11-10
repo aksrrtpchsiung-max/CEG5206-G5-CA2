@@ -1,0 +1,54 @@
+{
+  "contract_version": "0.1",
+  "parameter_status": "untuned",
+  "phase": "smoke",
+  "nodes": [
+    1024
+  ],
+  "mean_degrees": [
+    8
+  ],
+  "features": [
+    1,
+    17,
+    65
+  ],
+  "families": [
+    "uniform",
+    "skewed"
+  ],
+  "variants": [
+    "scalar",
+    "simd",
+    "row_static",
+    "row_dynamic",
+    "split_row"
+  ],
+  "threads": [
+    1,
+    2
+  ],
+  "tile_features": [
+    32
+  ],
+  "max_chunk_edges": [
+    16
+  ],
+  "warmup": 5,
+  "repetitions": 15,
+  "memory_budget_bytes": 1073741824,
+  "seeds": {
+    "uniform": {
+      "graph": 5206001,
+      "feature_0": 5206101,
+      "feature_1": 5206102
+    },
+    "skewed": {
+      "graph": 5206002,
+      "feature_0": 5206101,
+      "feature_1": 5206102
+    }
+  },
+  "batch_min_ms": 5,
+  "execution_order_seed": 52062026
+}

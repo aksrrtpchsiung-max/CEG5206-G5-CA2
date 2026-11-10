@@ -20,6 +20,11 @@ int main() {
     const std::vector<ceg5206::DenseConstView> inputs{{1, 1, {&a, 1}}, {1, 1, {&b, 1}}};
     auto samples = member_d::measure(kernel, {}, inputs, {1, 1, {&out, 1}}, {}, 5, 10);
     check(calls == 15 && samples.seconds.size() == 10 && samples.checksum == 35 && out == 5);
+    calls = 0;
+    auto reuse = member_d::measure(kernel, {}, inputs, {1, 1, {&out, 1}}, {}, 5, 10, 3, 0);
+    check(calls == 35 && reuse.reuse_calls == 3 && reuse.batch_groups == 1 && reuse.checksum == 35);
+    for (std::size_t i = 0; i < reuse.seconds.size(); ++i)
+        check(std::abs(reuse.sequence_seconds[i] - 3 * reuse.seconds[i]) < 1e-12);
     check(member_d::quantile({1, 2, 3, 4}, .5) == 2.5);
     check(member_d::quantile({1, 2, 3, 4}, .75) - member_d::quantile({1, 2, 3, 4}, .25) == 1.5);
     bool overflow = false;

@@ -1,0 +1,41 @@
+-- The CXX compiler identification is AppleClang 17.0.0.17000013
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Found OpenMP_CXX: -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include (found version "5.1")
+-- Found OpenMP: TRUE (found version "5.1")
+-- Configuring done (0.4s)
+-- Generating done (0.0s)
+-- Build files have been written to: /Users/junboxia/Documents/ChatGPT/5206/CEG5206-G5-CA2/member_d/build/checks/c
+[ 25%] Building CXX object CMakeFiles/c_scheduler.dir/src/c_scheduler.cpp.o
+[ 25%] Building CXX object CMakeFiles/c_real_b.dir/Users/junboxia/Documents/ChatGPT/5206/CEG5206-G5-CA2/member_b/src/simd.cpp.o
+[ 25%] Building CXX object CMakeFiles/c_contract_adapter.dir/src/contract_adapter.cpp.o
+[ 33%] Linking CXX static library libc_real_b.a
+[ 33%] Built target c_real_b
+[ 41%] Linking CXX static library libc_contract_adapter.a
+[ 41%] Built target c_contract_adapter
+[ 58%] Building CXX object CMakeFiles/c_contract_benchmark_real_b.dir/bench/contract_benchmark.cpp.o
+[ 58%] Building CXX object CMakeFiles/c_contract_tests_real_b.dir/tests/test_contract_adapter.cpp.o
+[ 66%] Linking CXX static library libc_scheduler.a
+[ 66%] Built target c_scheduler
+[ 75%] Building CXX object CMakeFiles/c_scheduler_tests.dir/tests/test_scheduler.cpp.o
+[ 83%] Linking CXX executable c_contract_benchmark_real_b
+[ 91%] Linking CXX executable c_contract_tests_real_b
+[ 91%] Built target c_contract_benchmark_real_b
+[ 91%] Built target c_contract_tests_real_b
+[100%] Linking CXX executable c_scheduler_tests
+[100%] Built target c_scheduler_tests
+Test project /Users/junboxia/Documents/ChatGPT/5206/CEG5206-G5-CA2/member_d/build/checks/c
+    Start 1: c_scheduler_tests
+1/2 Test #1: c_scheduler_tests ................   Passed    0.26 sec
+    Start 2: c_contract_tests_real_b
+2/2 Test #2: c_contract_tests_real_b ..........   Passed    0.27 sec
+
+100% tests passed out of 2
+
+Total Test time (real) =   0.53 sec
