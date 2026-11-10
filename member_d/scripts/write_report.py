@@ -187,7 +187,7 @@ def main():
         canvas.drawRightString(A4[0]-44,25,str(doc.page));canvas.restoreState()
     doc=SimpleDocTemplate(str(pdf),pagesize=A4,rightMargin=44,leftMargin=44,topMargin=38,bottomMargin=43,title='Sparse Feature Aggregation on Apple M4',author='CEG5206 Group 5',subject='Native correctness and performance evaluation of weighted CSR aggregation')
     doc.build(story,onFirstPage=footer,onLaterPages=footer)
-    (folder/'report.md').write_text('\n'.join(md)+'\n')
+    (folder/'report.md').write_text('\n'.join(md).rstrip()+'\n')
     (folder/'interpretation.json').write_text(json.dumps(dict(split_wins=wins,split_comparisons=20,split_ratios=split_ratios,tiling_geomean=gmean(tiling),tiling_min=min(tiling),tiling_max=max(tiling),best_scaling=scale),indent=2)+'\n')
     print(pdf)
 

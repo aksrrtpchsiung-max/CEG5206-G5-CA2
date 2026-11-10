@@ -5,3 +5,4 @@
 *.patch -text -whitespace
 # Matplotlib emits whitespace within generated SVG path attributes.
 *.svg -whitespace
+*.pdf binary

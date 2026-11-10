@@ -201,4 +201,3 @@ Reproduction starts from this integrated branch. Run bash member_d/scripts/build
 | D | Native integration, batching/reuse measurement, parameter freeze, allocation tracking, separate diagnostic hooks, campaign execution, input/evidence audits, English figures and report. |
 
 References: [1] Group 5 Team Project Proposal, computation contract and experimental design. [2] CEG5206 lecture topics cited by the proposal: locality/tiling, scan, CSR, SIMD, reduction and graph balance. [3] A implementation 43842aa, B implementation 2c8f04f, C implementation 8a06e1b, and D integration commits recorded in each manifest. [4] Native evidence and validation logs under member_d/evidence/apple-m4. A's prior QEMU/TSan records are supporting validation only, not native performance data.
-
