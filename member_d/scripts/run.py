@@ -181,8 +181,6 @@ def main():
             args.out.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
         print(f"Plan only: {len(cases)} cases; no kernels executed, no performance results.")
         return
-    if cfg["phase"] in ("tuning", "reuse", "diagnostics", "ablation"):
-        raise ValueError("v0.1 provides tuning/reuse plans only; their execution/selection protocols require the next integration milestone")
     linked = availability(binary)
     missing = sorted({c["variant"] for c in cases if not linked.get(c["variant"], False)})
     if missing:

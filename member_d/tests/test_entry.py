@@ -52,6 +52,11 @@ class EntryTests(unittest.TestCase):
             self.assertIn("not linked", result.stderr)
             self.assertFalse(out.exists())
 
+    def test_tuning_execution_checks_linked_implementations(self):
+        result = subprocess.run(["python3", str(ROOT / "scripts/run.py"), "run", "--config", str(ROOT / "configs/tuning.json")], capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("not linked", result.stderr)
+
     def test_summary_requires_matching_inputs(self):
         cfg = entry.read_config(ROOT / "configs/smoke.json")
         cfg.update(variants=["scalar", "simd"], families=["uniform"])

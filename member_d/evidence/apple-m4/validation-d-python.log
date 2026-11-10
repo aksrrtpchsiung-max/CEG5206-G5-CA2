@@ -1,0 +1,13 @@
+test_default_binary_cannot_produce_fake_results (test_entry.EntryTests) ... ok
+test_impossible_skew_rejected (test_entry.EntryTests) ... ok
+test_linked_fixture_end_to_end (test_entry.EntryTests) ... ok
+test_main_has_24_workloads_per_variant (test_entry.EntryTests) ... ok
+test_scaling_example (test_entry.EntryTests) ... ok
+test_summary_requires_matching_inputs (test_entry.EntryTests) ... ok
+test_tuning_and_reuse_are_plans (test_entry.EntryTests) ... ok
+test_tuning_execution_checks_linked_implementations (test_entry.EntryTests) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.151s
+
+OK
