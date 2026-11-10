@@ -1,0 +1,7 @@
+# Preserve the exact evidence bytes used by the SHA-256 index.
+# Python's CSV writer uses standard CRLF record terminators.
+*.csv -text whitespace=cr-at-eol
+# Source patches contain significant whitespace in diff context lines.
+*.patch -text -whitespace
+# Matplotlib emits whitespace within generated SVG path attributes.
+*.svg -whitespace
