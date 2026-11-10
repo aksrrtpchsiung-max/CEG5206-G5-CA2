@@ -1,0 +1,783 @@
+diff --git a/README.md b/README.md
+index 21941c0..65feee8 100644
+--- a/README.md
++++ b/README.md
+@@ -1,13 +1,13 @@
+-# CEG5206 第五组 CA2 项目
++# CEG5206 Group 5 CPU Graph Aggregation
+ 
+-本项目研究图神经网络的邻居特征聚合。输入是按 CSR 格式存储的加权图和节点特征矩阵 X，输出 Y 的每一行是对应节点所有邻居特征的加权和。
++This integrated branch contains the production A/B/C implementations and D's
++native Apple M4 experimental pipeline, raw evidence, English figures and report.
+ 
+-`binzhi` 分支基于 A 的接口约定和 D 的基准测试框架，实现了 B 的单线程 SIMD 聚合算子。C 可以复用同一个内核计算整行或一行中的部分边，D 可以通过统一入口运行完整算子。
++- [Member A baseline generation and correctness](member_a/README.md)
++- [Member B feature tiling and NEON](member_b/README.md)
++- [Member C row scheduling and split reduction](member_c/README.md)
++- [Member D native experiments and report](member_d/README.md)
++- [English experimental report](member_d/report/CEG5206_Group5_Experimental_Report.pdf)
+ 
+-| 模块 | 说明 |
+-|---|---|
+-| [成员 A](member_a/README.md) | 公共数据结构、接口约定 v0.1 和交接样例 |
+-| [成员 B](member_b/README.md) | 特征分块、NEON SIMD、尾部处理，以及构建和验证命令 |
+-| [成员 D](member_d/README.md) | 统一的基准测试入口和实验配置 |
+-
+-B 已在 Apple Silicon 上完成独立验证和本机性能对照。全组正式实验还需接入 A 和 C 的实际实现。具体接入步骤见 [B 的交接说明](member_b/docs/HANDOFF.md)。
++The computation is weighted CSR aggregation Y=AX on CPU, not full GNN training.
++See Member D's documentation for reproducible builds, tests and measurement.
+diff --git a/member_d/README.md b/member_d/README.md
+index 4b2020c..b981c3f 100644
+--- a/member_d/README.md
++++ b/member_d/README.md
+@@ -1,148 +1,112 @@
+-# Member D: Unified Benchmark Entry and Handoff v0.1
++# Member D Native Experiments and English Report
+ 
+-## Current deliverables
++D integrates the production A/B/C implementations, validates them on an Apple M4,
++and measures complete aggregation calls. All D documentation, figures, and report
++content are in English. Public algorithm declarations remain contract v0.1.
+ 
+-This work builds on A's `member-a/interface-contract-v0.1` branch. Public declarations
+-remain in `member_a/include/ceg5206/contracts.hpp`; D has not copied, changed, or
+-frozen A's interface proposal. This directory contains D's implementation and
+-supporting agreements for team review. It does not imply B/C approval or include
+-A/B/C algorithm implementations.
++## Deliverables
+ 
+-- One entry point: `scripts/run.py list | plan | run`.
+-- A C++17 runner that registers five variants and separates preparation, validation,
+-  and complete-call timing.
+-- Configuration templates for 24 workloads, thread scaling, tuning, and graph reuse.
+-- Raw JSON, five CSV tables, a run manifest, failure diagnostics, and memory accounting.
+-- An independently buildable default runner. Missing algorithms are unavailable;
+-  they are never replaced with fake measurements or another algorithm.
+-- Harness tests and a test-only adapter; no actual algorithm performance results.
++- [Experimental report](report/CEG5206_Group5_Experimental_Report.pdf)
++- [Editable report](report/report.md)
++- [English figures in PNG and SVG](figures/)
++- [Audited results and scaling table](report/audited_facts.json)
++- [Native raw evidence](evidence/apple-m4/run-20261110/)
++- [Native build and validation logs](evidence/apple-m4/)
++- [Handoff and integration notes](docs/HANDOFF.md)
++- [Measurement and memory definitions](docs/RESULTS.md)
++- [Validation record](docs/VALIDATION.md)
+ 
+-See the [validation record](docs/VALIDATION.md) for completed checks.
++This integrated branch includes A 43842aa, B 2c8f04f, C 8a06e1b, and D's public
++entry e6921eb, followed by D's native experiment work. Earlier M5 and QEMU data
++are retained in their original member directories but are not mixed into M4
++performance results.
+ 
+-**Available now:** review the interface, build the harness, inspect algorithm
+-availability, and generate experiment plans.
+-**After algorithms arrive:** integrate A first, verify the smoke validation/timing
+-pipeline, then integrate B/C variants individually.
+-**Later milestones:** execute tuning/reuse protocols, select parameters, batch very
+-short calls, add phase/worker profiling, complete correctness edge cases, and plot results.
+-v0.1 only plans tuning/reuse; execution explicitly fails rather than treating
+-ordinary timing repetitions as those experiments.
++## Build and native validation
+ 
+-## Run from the repository root
+-
+-Recommended build, with CMake and a C++17 compiler installed:
++The production B kernel requires AArch64 NEON. The parallel C adapter requires
++OpenMP. On Apple Silicon, install CMake and libomp if needed:
+ 
+ ```bash
+-cmake -S member_d -B member_d/build -DCMAKE_BUILD_TYPE=Release
+-cmake --build member_d/build
+-ctest --test-dir member_d/build --output-on-failure
++brew install cmake libomp
++bash member_d/scripts/build_team.sh
++python3 member_d/scripts/run.py list --binary member_d/build/team/benchmark
+ ```
+ 
+-Without CMake, Clang can build the default runner with no algorithms linked:
++The script supplies Homebrew's keg-only OpenMP paths to Apple Clang and builds
++`benchmark` plus `benchmark_profile`. Set `OMP_PREFIX` if libomp is elsewhere.
++On native AArch64 Linux, use the same script with a compiler that finds OpenMP.
+ 
+-```bash
+-mkdir -p member_d/build
+-clang++ -std=c++17 -O3 -Wall -Wextra -Wpedantic -fno-fast-math -ffp-contract=off -I member_a/include -I member_d/include member_d/src/benchmark.cpp -o member_d/build/benchmark
+-```
++The production executable has no worker-counting or phase-timing hooks. The
++separate diagnostic executable compiles the same C source with guarded hooks.
++C++ allocation accounting is active in both executables and records high-water
++requested bytes; its metadata is separate from process peak RSS.
++
++A/B/C production kernels are called through shared `prepare/run` factories.
++B's edge-major NEON control is additionally registered as `edge_major` for the
++independent tiling ablation. It is not substituted for any production variant.
++
++## Reproduce the campaign
++
++The saved configuration targets this 10-core M4: four performance plus six
++efficiency cores, 24 GiB memory, macOS 15.7.7, Apple Clang 17 and libomp 23.1.1.
++Use a fresh output directory:
+ 
+ ```bash
+-python3 member_d/scripts/run.py list
+-python3 member_d/scripts/run.py plan --config member_d/configs/smoke.json --out member_d/out/smoke-plan.json
+-python3 member_d/scripts/run.py plan --config member_d/configs/main.json --out member_d/out/main-plan.json
++bash member_d/scripts/run_campaign.sh member_d/evidence/apple-m4/new-run
+ ```
+ 
+-All five algorithms are currently false in the default build. The main plan contains
+-24 workloads × 5 variants = 120 single-thread cases. No algorithms are executed and
+-no measurements are generated by `plan`.
+-The smoke configuration checks integration at f=1/17/65; it does not replace A's
+-fixed signed-weight, empty-row, self-loop, or other correctness cases.
+-
+-## Integrating actual implementations
++The script runs smoke and tuning, selects one pair using the geometric mean of
++the two independent tuning graphs, freezes parameters, then runs main, scaling,
++reuse, ablation and diagnostics. It updates `configs/apple-m4` with the newly
++selected pair. Do not treat a future run's selected pair as fixed to this run's
++outcome. Adjust physical cores, hardware metadata, power policy and paths before
++running on another machine. Do not use an emulator for final performance claims.
+ 
+-Use the same public header rather than private copies. Implement the factories
+-against the jointly agreed interface and provide source paths to D's build.
++Execution order is deterministically randomized. The main grid has 24 workloads
++and five variants at one thread. Scaling uses 1, 2, 4, 8 and 10 requested threads.
++Reuse uses R=1/10/100 on n=8192, mean degree=32, f=64, including one-thread controls
++and one/four-thread parallel schedules. Power source and charge are saved per case.
++No frequency lock or hard core affinity is claimed.
+ 
+-| Variant ID | Factory | Owner |
+-|---|---|---|
+-| scalar | `a::prepare_scalar` | A |
+-| simd | `b::prepare_simd` | B |
+-| row_static | `c::prepare_static` | C |
+-| row_dynamic | `c::prepare_dynamic` | C |
+-| split_row | `c::prepare_split` | C |
++Every case validates both X inputs twice, warms up, calibrates batches and records
++15 batch averages. Necessary output initialization, synchronization and merging
++remain inside each timed complete call. Prepare is separately measured 10 times.
++Raw JSON and CSV retain actual batch sizes and the R-call sequence measurements.
+ 
+-A must also provide generation, validation, the FP64 oracle, check_close, and
+-degree_stats. C provides chunk_plan_view and A provides audit_chunk_plan.
+-See the [handoff agreement](docs/HANDOFF.md).
++## Generate English figures and report
+ 
+-Example CMake configuration for A: replace the placeholder paths before running.
++With Python 3.9 or later, install the report dependencies into a virtual environment
++or other isolated environment:
+ 
+ ```bash
+-cmake -S member_d -B member_d/build-a -DD_ENABLE_A=ON '-DD_A_SOURCES=/absolute/path/graph.cpp;/absolute/path/check.cpp' '-DD_SCALAR_SOURCES=/absolute/path/scalar.cpp'
+-cmake --build member_d/build-a
++python3 -m pip install -r member_d/requirements-report.txt
++python3 member_d/scripts/analyze.py --campaign member_d/evidence/apple-m4/run-20261110 --figures member_d/figures --report member_d/report
++python3 member_d/scripts/write_report.py --campaign member_d/evidence/apple-m4/run-20261110 --figures member_d/figures --report member_d/report
+ ```
+ 
+-Do not include scalar sources in `D_A_SOURCES`. Only the scalar translation unit
+-has automatic vectorization disabled; other sources retain normal optimization.
+-For B and C, use `D_ENABLE_B / D_B_SOURCES` and `D_ENABLE_C / D_C_SOURCES`.
+-C currently depends on B's row-range kernel. B/C experiments also need A's input
+-and validation modules. OpenMP implementations use `-DD_USE_OPENMP=ON`;
+-additional libraries use `D_EXTRA_LIBRARIES`. Document thread-library and ISA flags
+-when handing over implementations.
+-
+-## First integration run after linking A
++Analysis checks phase completion, validation results, input digests, positive
++samples, worker edge coverage and allocation budgets before reporting facts.
++Charts are generated from raw case records. The editable Markdown and PDF are
++produced together from the same audited data. No simulated measurements are used.
+ 
+-1. Copy `configs/hardware.example.json` and fill in actual hardware, build flags,
+-   and execution policies.
+-2. Confirm scalar availability with `list --binary ...`.
+-3. Run the command below. The output directory must not already exist, so separate
+-   experiment batches cannot be mixed accidentally.
++## Entry point and output files
+ 
+ ```bash
+-python3 member_d/scripts/run.py run --config member_d/configs/smoke.json --binary member_d/build-a/benchmark --metadata member_d/configs/hardware.local.json --out member_d/out/first-real-smoke
++python3 member_d/scripts/run.py plan --config member_d/configs/apple-m4/main.json --out member_d/out/plan.json
++python3 member_d/scripts/run.py run --config member_d/configs/apple-m4/smoke.json --binary member_d/build/team/benchmark --metadata member_d/configs/apple-m4/hardware.json --out member_d/out/new-smoke
+ ```
+ 
+-Smoke outputs are marked `integration_only`. Before formal main/scaling runs,
+-perform actual tuning, save the selected parameters, set
+-`parameter_status: frozen_after_tuning`, and complete peak-memory review.
+-Changing the status field alone does not constitute tuning.
+-`scaling.example.json` assumes P=4; update P and the thread list to match the
+-physical cores actually used. Tuning uses min(4,P) threads.
+-Seeds follow A's proposed engineering convention, pending confirmation; tuning
+-and formal graph seeds are separate.
+-
+-## Outputs and timing
+-
+-Each case runs in a separate process. Within that process, prepare runs once,
+-validation precedes at least 5 warmups and 10 timed repetitions, and two
+-pregenerated X arrays alternate by repetition parity. Timing covers exactly one
+-complete `PreparedKernel.run`. Necessary clearing, scheduling, synchronization,
+-and merging belong inside run. A checksum scans Y after each timed call and can
+-affect the next call's cache state. Every variant follows this warm-start protocol;
+-these are not cold-cache measurements.
+-
+-- `manifest.json`: configuration, hardware record, commit, dirty-worktree flag,
+-  binary SHA-256, and run status.
+-- `cases/<case_id>.json`: actual results, input digest, validation of both X arrays,
+-  individual timings, statistics, memory, and degree data.
+-- `calls.csv / validation.csv / summary.csv / setup_memory.csv / degree.csv`:
+-  analysis tables.
+-- `failure.json`: failed case, exit code, and diagnostics. A failed manifest means
+-  any completed cases are partial results only.
+-
+-Median and IQR use linear interpolation at sorted index `(N-1)*q`. Speedups are
+-filled only when a matching baseline exists; otherwise they remain blank.
+-See the [results and measurement agreement](docs/RESULTS.md).
+-
+-## Test the harness
++Output directories must be new. Missing algorithms fail explicitly. A failed case
++marks the manifest failed and preserves diagnostics; partial results are not a
++completed experiment. Each phase includes configuration, source commit/patch,
++binary SHA-256, runtime environment, execution order, raw calls, validation,
++summary, setup/memory and degree tables. Each case JSON additionally includes
++input digests, preparation samples, power observations and optional diagnostics.
+ 
+-```bash
+-clang++ -std=c++17 -O2 -Wall -Wextra -Wpedantic -I member_a/include -I member_d/include member_d/tests/test_measurement.cpp -o member_d/build/test_measurement
+-member_d/build/test_measurement
+-clang++ -std=c++17 -O2 -Wall -Wextra -Wpedantic -fno-fast-math -ffp-contract=off -DD_ENABLE_A -DD_TEST_ONLY -I member_a/include -I member_d/include member_d/src/benchmark.cpp member_d/tests/fake_a.cpp -o member_d/build/test_fixture_runner
+-python3 -m unittest discover -s member_d/tests -v
+-```
++## Scope
+ 
+-`tests/fake_a.cpp` verifies only the harness connection pipeline. It requires an
+-explicit `D_TEST_ONLY` definition and is excluded from the production CMake target.
+-It is not A's algorithm or oracle implementation. Tests delete their temporary
+-outputs; those timings are not performance evidence.
++The report covers weighted CPU aggregation only. It does not claim full GNN
++training speed, accuracy, GPU performance, hardware-counter attribution, hard
++P/E affinity, or a new native M4 ThreadSanitizer result. See the report for
++within-run variation, power records and limitations. The template configurations
++outside `configs/apple-m4` remain examples and are not the frozen M4 campaign.
+diff --git a/member_d/configs/apple-m4/ablation.json b/member_d/configs/apple-m4/ablation.json
+index 551a10f..7d81c45 100644
+--- a/member_d/configs/apple-m4/ablation.json
++++ b/member_d/configs/apple-m4/ablation.json
+@@ -1,6 +1,6 @@
+ {
+   "contract_version": "0.1",
+-  "parameter_status": "untuned",
++  "parameter_status": "frozen_after_tuning",
+   "phase": "ablation",
+   "nodes": [
+     8192,
+@@ -28,7 +28,7 @@
+     1
+   ],
+   "tile_features": [
+-    32
++    64
+   ],
+   "max_chunk_edges": [
+     128
+@@ -49,5 +49,6 @@
+     }
+   },
+   "batch_min_ms": 20,
+-  "execution_order_seed": 52062026
++  "execution_order_seed": 52062026,
++  "tuning_manifest_sha256": "dc234d249dc4055fee9b43e34e1f6101e26fed25542e380eadcf382d1f794580"
+ }
+diff --git a/member_d/configs/apple-m4/diagnostics.json b/member_d/configs/apple-m4/diagnostics.json
+index 4a2c747..525cac1 100644
+--- a/member_d/configs/apple-m4/diagnostics.json
++++ b/member_d/configs/apple-m4/diagnostics.json
+@@ -1,6 +1,6 @@
+ {
+   "contract_version": "0.1",
+-  "parameter_status": "untuned",
++  "parameter_status": "frozen_after_tuning",
+   "phase": "diagnostics",
+   "nodes": [
+     65536
+@@ -26,7 +26,7 @@
+     10
+   ],
+   "tile_features": [
+-    32
++    64
+   ],
+   "max_chunk_edges": [
+     128
+@@ -47,5 +47,6 @@
+     }
+   },
+   "batch_min_ms": 0,
+-  "execution_order_seed": 52062026
++  "execution_order_seed": 52062026,
++  "tuning_manifest_sha256": "dc234d249dc4055fee9b43e34e1f6101e26fed25542e380eadcf382d1f794580"
+ }
+diff --git a/member_d/configs/apple-m4/main.json b/member_d/configs/apple-m4/main.json
+index 2bd47a5..0b43243 100644
+--- a/member_d/configs/apple-m4/main.json
++++ b/member_d/configs/apple-m4/main.json
+@@ -1,6 +1,6 @@
+ {
+   "contract_version": "0.1",
+-  "parameter_status": "untuned",
++  "parameter_status": "frozen_after_tuning",
+   "phase": "single",
+   "nodes": [
+     8192,
+@@ -30,7 +30,7 @@
+     1
+   ],
+   "tile_features": [
+-    32
++    64
+   ],
+   "max_chunk_edges": [
+     128
+@@ -51,5 +51,6 @@
+     }
+   },
+   "batch_min_ms": 20,
+-  "execution_order_seed": 52062026
++  "execution_order_seed": 52062026,
++  "tuning_manifest_sha256": "dc234d249dc4055fee9b43e34e1f6101e26fed25542e380eadcf382d1f794580"
+ }
+diff --git a/member_d/configs/apple-m4/reuse.json b/member_d/configs/apple-m4/reuse.json
+index 10168ae..5519635 100644
+--- a/member_d/configs/apple-m4/reuse.json
++++ b/member_d/configs/apple-m4/reuse.json
+@@ -1,6 +1,6 @@
+ {
+   "contract_version": "0.1",
+-  "parameter_status": "untuned",
++  "parameter_status": "frozen_after_tuning",
+   "phase": "reuse",
+   "nodes": [
+     8192
+@@ -27,7 +27,7 @@
+     4
+   ],
+   "tile_features": [
+-    32
++    64
+   ],
+   "max_chunk_edges": [
+     128
+@@ -53,5 +53,6 @@
+     1,
+     10,
+     100
+-  ]
++  ],
++  "tuning_manifest_sha256": "dc234d249dc4055fee9b43e34e1f6101e26fed25542e380eadcf382d1f794580"
+ }
+diff --git a/member_d/configs/apple-m4/scaling.json b/member_d/configs/apple-m4/scaling.json
+index c775366..7d3ccc0 100644
+--- a/member_d/configs/apple-m4/scaling.json
++++ b/member_d/configs/apple-m4/scaling.json
+@@ -1,6 +1,6 @@
+ {
+   "contract_version": "0.1",
+-  "parameter_status": "untuned",
++  "parameter_status": "frozen_after_tuning",
+   "phase": "scaling",
+   "nodes": [
+     65536
+@@ -31,7 +31,7 @@
+     10
+   ],
+   "tile_features": [
+-    32
++    64
+   ],
+   "max_chunk_edges": [
+     128
+@@ -53,5 +53,6 @@
+   },
+   "batch_min_ms": 20,
+   "execution_order_seed": 52062026,
+-  "physical_cores": 10
++  "physical_cores": 10,
++  "tuning_manifest_sha256": "dc234d249dc4055fee9b43e34e1f6101e26fed25542e380eadcf382d1f794580"
+ }
+diff --git a/member_d/docs/HANDOFF.md b/member_d/docs/HANDOFF.md
+index 5c4f2a9..2faa6e9 100644
+--- a/member_d/docs/HANDOFF.md
++++ b/member_d/docs/HANDOFF.md
+@@ -1,71 +1,48 @@
+-# D Integration and Interface Review
+-
+-Status: D's implementation plan and review feedback, pending A/B/C confirmation.
+-This work follows A's interface proposal v0.1 without modifying the public header.
+-
+-## Implemented against the proposal
+-
+-- Use CsrView / DenseView and the shared RunConfig without new algorithm signatures.
+-- Call each factory's PreparedKernel; time prepare separately and run as a complete call.
+-- D owns two X arrays, Y, and the validation reference. Prepared state is destroyed
+-  before the graph storage.
+-- Perform FP64 validation and NaN output prefilling outside timed calls. Alternate
+-  both inputs and repeat validation to check overwrite semantics.
+-- Prepare again whenever graph, f, threads, tile, or chunk changes.
+-- Disable fast-math and FMA contraction for all variants. Disable vectorization
+-  only in the scalar translation unit.
+-- Account for descriptors, partials, and other workspace separately, using vector
+-  capacity. Unknown or unavailable variants fail without fallback.
+-
+-## Items requiring team confirmation or additional evidence
+-
+-| Item | Reviewers | Current proposal |
+-|---|---|---|
+-| Public v0.1 declarations, Y overwrite semantics, prepare lifetime | All | Share A's original header; jointly version any changes |
+-| A source files and build target | A/D | Separate scalar translation unit; provide remaining source paths, dependencies, and validation commands |
+-| SIMD ISA, FMA policy, compiler flags | B/D | One numerical policy across variants, safe tails, no silent hot-path fallback |
+-| B full operator and row-range kernel | B/C/D | Deliver both; C reuses the shared row-range interface |
+-| Static/dynamic/split sources, threading library, chunk view | C/D | Integrate each variant when ready; simultaneous delivery is unnecessary |
+-| Seeds, generator_version, CSV, digest algorithm | A/D | Follow A's proposal; input digest is FNV-1a64 native-v1; manifest records binary SHA-256 |
+-| Workspace capacity and temporary prepare peaks | A/C/D | Current interface reports retained workspace; separately provide construction/prepare peak evidence |
+-| Phase timings and per-worker edges/time | C/D | Separate diagnostic entry or sidecar; avoid atomic logging in formal hot paths; agree the interface later |
+-| Warm-start protocol and very short calls | All | Currently one full call followed by a Y scan; add batching before drawing conclusions from calls too short to measure reliably |
+-
+-The input digest hashes native bytes of row_ptr, col_idx, values, X0, and X1 in that
+-order. It checks input consistency on the same platform and configuration. It is
+-not a portable cross-endian serialization or a cryptographic hash. Each case JSON
+-stores its digest.
+-
+-## A: first handoff acceptance
+-
+-Provide linkable generate_graph / generate_features, validate_csr / validate_problem,
+-prepare_scalar, oracle_fp64, check_close, and degree_stats. Compile scalar separately.
+-Validate A's fixed handoff fixture and edge cases before D's smoke run. The generator
+-must follow agreed random-sequence and stored-weight rules. Do not substitute an
+-edge list decoded from CSR for independent oracle input.
+-
+-## B: first handoff acceptance
+-
+-Provide prepare_simd and row_range_simd with ISA and compiler flags. Independently
+-check f=1/17/65, empty rows, and signed weights. Inputs guarantee only natural
+-alignment, with no padding; tails must stay within bounds. The complete SIMD
+-operator accepts threads=1 only.
+-
+-## C: first handoff acceptance
+-
+-Deliver prepare_static / prepare_dynamic / prepare_split progressively, together
+-with chunk_plan_view and threading build dependencies. Split-row must pass A's
+-chunk audit, FP64 numerical checking, and separate race diagnostics; none replaces
+-the others. Do not allocate scratch or rebuild descriptors inside run. Necessary
+-clearing and all merging must finish before run returns. Document actual edge
+-assignment, merge order, workspace capacity bytes, and temporary peak memory.
+-
+-## Current scope limits
+-
+-v0.1 implements the integration harness and smoke/single/scaling execution paths.
+-It has not been linked against actual A/B/C implementations. Tuning and reuse only
+-expand plans, and execution explicitly rejects them. The next milestone adds
+-geometric-mean parameter selection, freeze records, reuse total-time measurements,
+-and their repetition protocols. Formal profiling, plots, and the final report
+-follow algorithm integration. Each member must provide their own confirmation;
+-this record does not approve the proposal on anyone else's behalf.
++# Native Integration and Handoff
++
++## Source versions and interfaces
++
++A 43842aa supplies actual generators, validators, CSR baseline, independent FP64
++oracle, comparator and chunk audit. B 2c8f04f supplies prepare_simd and
++row_range_simd. C 8a06e1b supplies prepare_static, prepare_dynamic, prepare_split
++and chunk_plan_view. D uses the unchanged public v0.1 header. Native integration
++is complete for the measured campaign; final team approval of the specification
++is a separate team decision.
++
++A scalar remains a separate translation unit with automatic vectorization off.
++All numerical sources use -O3, no fast math, and FP contraction off. B's ablation
++source edge_major.cpp is a labeled additional control, not a replacement kernel.
++
++## Execution contract
++
++D owns two X arrays, Y and reference storage. CSR/X are read-only during run.
++Each prepared state binds graph storage, n, f and all RunConfig fields. Changing
++any of these requires preparation again. D destroys prepared state before graph
++storage. Hot-path calls overwrite Y and reset all necessary per-call state.
++
++D repeats independent FP64 checks on alternating inputs with NaN-prefilled Y,
++audits every split plan, releases oracle/reference storage before timing, and
++records input digests to verify that variants actually receive the same data.
++Production builds never link tests/fake_a.cpp, B's test fixture, or C's portable shim.
++
++## Diagnostic hooks
++
++D adds only compile-guarded CEG5206_D_DIAGNOSTICS hooks to C's production adapter.
++They count actual worker edges and measure initialization, aggregation and merge
++regions. They are absent from benchmark and enabled only in benchmark_profile.
++Diagnostic globals are for sequential harness calls, not concurrent invocation of
++multiple prepared operators. Diagnostic instrumentation can perturb runtime and
++must not be used for primary speedups.
++
++## Validation and reproducibility
++
++Native A+B+C release and ASan/UBSan suites pass. B's standalone optimized,
++sanitizer, assembly and D handoff checks pass. C's own tests link the real NEON
++source. D measurement, allocation and entry tests pass. Logs are retained under
++evidence/apple-m4. Existing A cross-review contains a separate x86 TSan/Archer
++check; no native M4 TSan result is claimed.
++
++Each phase records the actual binary hash, source revision and dirty-source patch.
++The report's evidence index hashes all campaign artifacts. Build and campaign
++scripts reproduce the integration and measurement protocol. Native results apply
++to this machine and recorded OS/thread/power policies only.
+diff --git a/member_d/docs/RESULTS.md b/member_d/docs/RESULTS.md
+index a76fc76..e4f0a03 100644
+--- a/member_d/docs/RESULTS.md
++++ b/member_d/docs/RESULTS.md
+@@ -1,85 +1,79 @@
+-# Experiment and Results Agreement v0.1
+-
+-## Algorithm lifecycle and timing
+-
+-Generate canonical edges/CSR/X → validate → prepare (separately timed) → audit split
+-chunks → repeatedly validate both X arrays → release oracle edges/reference →
+-warm up → time complete run calls → save results.
+-
+-Use C++ steady_clock. Observe all Y elements between calls without assuming full
+-cache residency. Main/single runs use matching seeds/configuration to construct
+-equivalent inputs. Separate variant processes avoid retaining several workspaces
+-at once.
+-
+-Main timings exclude graph/feature generation, allocation, validation, file I/O,
+-and prepare. They include all necessary initialization, scheduling, synchronization,
+-and merging inside run. Report graph sampling, weight preparation, CSR construction,
+-and variant preparation separately. shared_prep = weight_preparation +
+-csr_construction; report sampling separately.
+-
+-## Tables
+-
+-CSV files use UTF-8 and snake_case, seconds for time, and bytes for allocation.
+-Missing coordinates/baselines are blank; non-finite relative error is inf.
+-Every table includes case configuration, case_id, and run_id. Within a batch,
+-run_id equals case_id; use the manifest to distinguish batches. case_id is the
+-first 16 hexadecimal digits of the normalized configuration's SHA-256, not an
+-input-content digest.
+-
+-| Table | Main fields |
+-|---|---|
+-| Shared configuration | contract_version, generator_version, phase, variant, family, n, m, f, graph_seed, feature_seed_0/1, threads, tile_features, max_chunk_edges, warmup, repetitions, memory_budget_bytes |
+-| calls | repetition (zero-based), batch_calls (currently 1), feature_seed, call_seconds |
+-| validation | feature_seed, passed, checked, failed, atol, rtol, max_abs_error, max_rel_error, max_scaled_error, worst_row, worst_feature |
+-| summary | median_seconds, iqr_seconds, scalar_speedup, thread_speedup, nominal_gflops, checksum |
+-| setup_memory | graph_sampling_seconds, weight_preparation_seconds, csr_construction_seconds, shared_prep_seconds, variant_prep_seconds, graph_bytes, feature_bytes, output_bytes, descriptor_bytes, partial_bytes, other_workspace_bytes, validation_retained_bytes, performance_retained_bytes |
+-| degree | degree_min/max/mean/median/p90/p99, empty_rows |
+-
+-scalar_speedup = matching single-thread scalar median / current median.
+-thread_speedup = matching single-thread median of the same variant / current median.
+-Both require matching family/n/m/f/seeds/tile/chunk; leave blank without a baseline.
+-nominal_gflops = 2*m*f/(1e9*t), excluding extra merge operations.
+-IQR = Q(.75)-Q(.25), with linear interpolation at sorted index (N-1)*q.
+-
+-## Memory accounting and limits
+-
+-The budget is at most 2^30 bytes. Logical lower bounds: CSR=8*(n+1)+8*m;
+-two X arrays plus Y=12*n*f; partials=4*f*C_s, counting only chunks of split rows.
+-Use actual vector capacity*sizeof(T) and implementation-reported workspace.
+-Logical sizes must not hide padding or reserved capacity. Check lower bounds,
+-post-generation capacity, post-prepare capacity, and reference capacity. Release
+-reference and oracle edges before performance timing.
+-
+-**validation_retained_bytes is the simultaneously retained size of known arrays,
+-not an actual peak measurement.** The public interface cannot currently observe
+-generator/prepare temporary peaks or prevent an oversized allocation before prepare
+-returns. Therefore this value is not named validation_peak_bytes. Before formal
+-experiments, A/C must supply peak-memory evidence and D must record the method and
+-results before setting peak_memory_verified=true in hardware metadata. This flag
+-is a manual review declaration, not an automatic proof; record evidence in notes.
+-RSS may include runtime allocations and thread stacks and must be distinguished
+-from the project array budget. Allocated bytes are not DRAM traffic.
+-
+-## Configurations and phases
+-
+-- smoke: initial integration only, not final performance evidence. Missing
+-  algorithms or failed validation stop execution.
+-- main: 24 workloads × five variants, single-threaded, totaling 120 cases.
+-- scaling.example: assumes P=4. Update P and the thread list to the actual physical
+-  cores used.
+-- tuning: independent graph seeds, six parameter pairs × two graphs, min(4,P)
+-  threads. A later executor selects by the geometric mean of complete split-call times.
+-- reuse: plans R=1/10/100. A later executor measures shared and variant-specific
+-  preparation plus R complete calls, alternating two X arrays.
+-
+-The last two phases only generate plans in v0.1 and cannot execute. Main/scaling
+-can execute after actual algorithms are linked, parameters are genuinely frozen,
+-and peak memory is reviewed. Before complete experiments, also validate fixed
+-fixtures, empty graphs, isolated nodes, explicit self-loops, signed weights, hubs,
+-chunk boundaries, feature tails, and races. Smoke success is not full project
+-correctness acceptance.
+-
+-Failures write failure.json and mark the manifest failed. Completed cases are
+-available for diagnosis, not proof of a complete successful experiment. Output
+-directories must be new. Missing implementations create no performance directory;
+-formal result tables are never filled with simulated timings.
++# Measurement and Results Definitions
++
++## Lifecycle and statistics
++
++Generate canonical edges, CSR and two X arrays; validate; measure 10 preparations;
++audit split layout; validate X0/X1/X0/X1 with NaN-prefilled Y; release oracle edges
++and FP64 reference; warm up; calibrate; record 15 batches; export results.
++
++Calibration doubles call groups until a batch reaches 20 ms or 1024 groups. Smoke
++uses 5 ms and diagnostics uses one unbatched call. An R-reuse group contains
++exactly R complete calls. All variants alternate the two X arrays by the continuous
++call index. Timers surround full groups only. The final batch output is observed
++after timing. median_seconds describes per-call batch averages;
++median_sequence_seconds describes per-R-call-group averages. These are warm-start
++measurements. Consecutive samples are not independent cross-day replications.
++
++Median and quartiles use linear interpolation at sorted index (N-1)*q.
++IQR=Q(.75)-Q(.25). Primary timings include necessary clearing, aggregation,
++scheduling, synchronization and merging; they exclude allocation, generation,
++prepare, validation and file I/O. Variant prepare is a median of 10 fresh states;
++state destruction is outside its timer. Shared setup is weight preparation plus
++CSR construction, each recorded once per case. Sampling is separate.
++
++T(R)=shared_prep+median_variant_prep+median_R_call_sequence. Feature generation,
++graph sampling and validation are outside this reuse convention. The same graph
++and state remain live during the sequence. Reuse does not remove per-call merges.
++
++## Files and units
++
++CSV files are UTF-8 with stable snake_case names. Time is seconds, capacity is
++bytes, repetition starts at zero, missing baselines/coordinates are blank, and
++non-finite relative error is inf. Tables are calls, validation, summary,
++setup_memory and degree. Configuration accompanies each row. run_id equals the
++configuration-derived case_id within its parent manifest. case_id is not an input
++digest. Input digest is FNV-1a64 over native bytes of row_ptr, col_idx, values,
++X0 and X1, intended for consistency checks on the same architecture.
++
++Raw calls include batch_calls, batch_groups, reuse_calls, feature_seed at batch
++start, call_seconds and sequence_seconds. X alternates throughout the batch;
++a starting seed does not imply all calls used one seed. Summary speedups require
++matching family/n/m/f/seeds/tile/chunk/R and the appropriate scalar or own-variant
++one-thread baseline. Nominal throughput is 2*m*f/(1e9*t), excluding extra merges.
++
++Per-case JSON retains 10 preparation samples, two final validation reports, input
++digest, power source/charge, and diagnostic samples when enabled. Every validation
++execution must pass before any timing output is accepted. The two stored reports
++are the final X0/X1 checks after four validation executions.
++
++## Memory evidence
++
++The logical payload is CSR=8*(n+1)+8*m; two X arrays plus Y=12*n*f;
++partials=4*f*C_s for chunks of split rows only. Retained arrays use actual vector
++capacity and sizeof, including descriptor padding. Workspace fields do not overlap.
++Validation retained bytes are not labeled as peak bytes.
++
++An operator-new tracker measures the high-water sum of requested live C++
++allocations over all phases, including unordered-set nodes, sorting temporaries,
++worker bins and vector capacity. It excludes allocator bookkeeping and runtime
++malloc/mmap allocations. getrusage process peak RSS is separately retained;
++it includes the allocator/runtime/stacks and has a different interpretation.
++The analyzer checks measured C++ peaks against the 1 GiB array budget. RSS is
++reported rather than equated with array bytes or DRAM traffic.
++
++## Experimental controls and interpretation
++
++The campaign uses separate tuning seeds, freezes one selected pair and then runs
++24 single-thread workloads, selected thread-scaling cases, R-reuse, independent
++SIMD/tiling ablation and separate phase/worker diagnostics. Selection minimizes
++the geometric mean of two full split-call medians at min(4,P) threads. Case order
++is deterministically shuffled. Every phase records actual configuration and order.
++
++No hard affinity or frequency control is claimed. The M4 contains four P and six
++E cores. Equal edge counts need not mean equal elapsed work; dynamic scheduling
++can properly assign more edges to faster cores. Instrumented phase medians are
++supporting diagnostics and are not substituted for uninstrumented timings.
++
++Failure preserves diagnostics and marks the manifest failed. Completed subsets
++are partial evidence. Fresh output directories prevent mixing runs. Formal M4
++results are not mixed with earlier M5, QEMU or portable-shim measurements.
+diff --git a/member_d/docs/VALIDATION.md b/member_d/docs/VALIDATION.md
+index 252aa0b..96ae1c3 100644
+--- a/member_d/docs/VALIDATION.md
++++ b/member_d/docs/VALIDATION.md
+@@ -1,31 +1,28 @@
+-# v0.1 Harness Validation Record
++# Native M4 Validation Record
+ 
+-Date: 2026-11-05. Base: A's commit
+-`0eaeb1518228985b134c6220c41252c52f1f537c`.
+-Validation platform: macOS arm64, Apple Clang 17.0.0, Python 3.9, and CMake 4.4.4
+-installed in a temporary directory. These checks validate the harness, not project
+-performance; no algorithm speedup is claimed.
++Date: 10 November 2026. Platform: Apple M4, macOS 15.7.7, Apple Clang 17.0.0,
++CMake 4.4.3 and libomp 23.1.1. All tests use production A/B/C where applicable.
+ 
+-Completed checks:
++- A+B+C Release: 7/7 CTest suites passed, including 1/2/4/10-thread variant tests.
++- A+B+C ASan and UBSan: 7/7 suites passed, separate from performance binaries.
++- B verification script: optimized, ASan/UBSan, concurrency, assembly and D
++  fixture linkage checks passed. Fixtures are not used in production experiments.
++- C native tests: 2/2 passed with the real B NEON implementation.
++- D Python entry/export checks: 8/8 passed, no skips.
++- D CTest: 2/2 passed for measurement/reuse and allocation accounting, including
++  aligned allocations and release tracking.
++- Production object disassembly confirms scalar fmul/fadd and four-lane NEON
++  fmul.4s/fadd.4s; assembly evidence is retained.
++- The campaign analyzer checks all phase manifests, sample counts, positive
++  durations, FP64 validation records, input-digest equality, worker edge totals
++  and C++ high-water memory budgets before creating report facts.
+ 
+-- Direct Clang build of the default benchmark, without warnings. All five
+-  variants report unavailable.
+-- C++ syntax checking with A/B/C execution paths enabled. This is not a link test
+-  against actual member implementations.
+-- CMake Release configure/build and CTest: one measurement test passed.
+-- Measurement tests: warmup/timed call counts, alternating inputs, observable
+-  outputs, median/IQR, overflow, and rejection of a missing kernel.
+-- Python unittest: seven tests passed, none skipped. Coverage includes deterministic
+-  expansion of 120 formal cases, tuning/reuse plans, impossible skewed graphs,
+-  scaling thread lists, no measurements for missing implementations, matching
+-  baseline summaries, and end-to-end output through a test-only A adapter.
+-- Five configuration plans: smoke=6, main=120, tuning=12, reuse=30, scaling example=44 cases.
++ASan/UBSan is not a race detector. A's provided cross-review contains separate
++x86 TSan/Archer evidence for C; this report does not claim native M4 TSan coverage.
++Diagnostic hooks are compiled out of production timings. The current campaign's
++numerical totals and case counts are generated in report/audited_facts.json.
+ 
+-The end-to-end adapter accepts only a fixed two-node test input. It lives in
+-tests/fake_a.cpp and requires D_TEST_ONLY to compile. Tests write to temporary
+-directories and remove their outputs; test timings are not published as experiment
+-results. The production build neither registers nor links this adapter.
+-
+-Pending actual algorithm delivery: A's inputs and independent oracle, B's SIMD
+-instructions and tails, C's chunks/races/merging, actual workspace and temporary
+-peaks, final ISA/OpenMP toolchain, complete experiments, and profiling.
++Logs and raw evidence are under evidence/apple-m4. Earlier v0.1 harness tests and
++prior members' measurements remain historical evidence, not substitutes for these
++native M4 results. Any preliminary campaign startup error in campaign.log is
++retained; phase manifests and the final audit determine completion.
+diff --git a/member_d/include/d_profile.hpp b/member_d/include/d_profile.hpp
+index 3db726f..f260ff6 100644
+--- a/member_d/include/d_profile.hpp
++++ b/member_d/include/d_profile.hpp
+@@ -9,10 +9,14 @@ struct Snapshot {
+     double initialization = 0, aggregation = 0, merge = 0;
+     std::vector<std::uint64_t> worker_edges;
+ };
++struct alignas(128) Counter { std::uint64_t value = 0; };
++inline std::vector<Counter> counters;
+ inline Snapshot data;
+ inline Clock::time_point start;
+-inline void reset(unsigned workers) { data = {}; data.worker_edges.assign(workers, 0); }
++inline void reset(unsigned workers) { data = {}; data.worker_edges.assign(workers, 0); counters.assign(workers, {}); }
+ inline void begin() { start = Clock::now(); }
+-inline void end(double& value) { value = std::chrono::duration<double>(Clock::now() - start).count(); }
+-inline void edges(std::uint64_t count) { data.worker_edges[omp_get_thread_num()] += count; }
++inline void end(double& value) { value = std::chrono::duration<double>(Clock::now() - start).count();
++    for (std::size_t i = 0; i < counters.size(); ++i) data.worker_edges[i] = counters[i].value;
++}
++inline void edges(std::uint64_t count) { counters[omp_get_thread_num()].value += count; }
+ }

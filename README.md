@@ -1,13 +1,13 @@
-# CEG5206 第五组 CA2 项目
+# CEG5206 Group 5 CPU Graph Aggregation
 
-本项目研究图神经网络的邻居特征聚合。输入是按 CSR 格式存储的加权图和节点特征矩阵 X，输出 Y 的每一行是对应节点所有邻居特征的加权和。
+This integrated branch contains the production A/B/C implementations and D's
+native Apple M4 experimental pipeline, raw evidence, English figures and report.
 
-`binzhi` 分支基于 A 的接口约定和 D 的基准测试框架，实现了 B 的单线程 SIMD 聚合算子。C 可以复用同一个内核计算整行或一行中的部分边，D 可以通过统一入口运行完整算子。
+- [Member A baseline generation and correctness](member_a/README.md)
+- [Member B feature tiling and NEON](member_b/README.md)
+- [Member C row scheduling and split reduction](member_c/README.md)
+- [Member D native experiments and report](member_d/README.md)
+- [English experimental report](member_d/report/CEG5206_Group5_Experimental_Report.pdf)
 
-| 模块 | 说明 |
-|---|---|
-| [成员 A](member_a/README.md) | 公共数据结构、接口约定 v0.1 和交接样例 |
-| [成员 B](member_b/README.md) | 特征分块、NEON SIMD、尾部处理，以及构建和验证命令 |
-| [成员 D](member_d/README.md) | 统一的基准测试入口和实验配置 |
-
-B 已在 Apple Silicon 上完成独立验证和本机性能对照。全组正式实验还需接入 A 和 C 的实际实现。具体接入步骤见 [B 的交接说明](member_b/docs/HANDOFF.md)。
+The computation is weighted CSR aggregation Y=AX on CPU, not full GNN training.
+See Member D's documentation for reproducible builds, tests and measurement.

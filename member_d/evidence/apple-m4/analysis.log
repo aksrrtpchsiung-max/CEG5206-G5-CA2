@@ -1,0 +1,78 @@
+{
+  "phases": {
+    "smoke": {
+      "cases": 48,
+      "samples": 720
+    },
+    "tuning": {
+      "cases": 12,
+      "samples": 180
+    },
+    "main": {
+      "cases": 120,
+      "samples": 1800
+    },
+    "scaling": {
+      "cases": 68,
+      "samples": 1020
+    },
+    "reuse": {
+      "cases": 48,
+      "samples": 720
+    },
+    "ablation": {
+      "cases": 72,
+      "samples": 1080
+    },
+    "diagnostics": {
+      "cases": 24,
+      "samples": 360
+    }
+  },
+  "total_cases": 392,
+  "total_samples": 5880,
+  "validation_records": 784,
+  "checked_outputs": 3303636992,
+  "failed_outputs": 0,
+  "max_abs_error": 1.5273690223693848e-07,
+  "max_scaled_error": 0.007879742424188681,
+  "cpp_peak_bytes": 391083232,
+  "rss_peak_bytes": 411598848,
+  "speedups": {
+    "simd": {
+      "geomean": 3.7913648896990426,
+      "minimum": 2.208910381337032,
+      "maximum": 5.384399167868472
+    },
+    "row_static": {
+      "geomean": 3.7464544905911965,
+      "minimum": 2.3119168869133695,
+      "maximum": 5.200044221760555
+    },
+    "row_dynamic": {
+      "geomean": 3.8209122836209,
+      "minimum": 2.127704523688676,
+      "maximum": 5.240796539112192
+    },
+    "split_row": {
+      "geomean": 3.6574059735545843,
+      "minimum": 2.0574133995435053,
+      "maximum": 5.280826059040693
+    }
+  },
+  "power_sources": {
+    "AC": 392
+  },
+  "battery_range": [
+    77,
+    85
+  ],
+  "selected": {
+    "tile_features": "64",
+    "max_chunk_edges": "128",
+    "geometric_mean_seconds": "0.0004068423727229777",
+    "uniform_seconds": "0.000410319015625",
+    "skewed_seconds": "0.0004033951875"
+  },
+  "input_digest_groups": 32
+}

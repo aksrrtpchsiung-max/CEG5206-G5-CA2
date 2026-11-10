@@ -1,6 +1,6 @@
 {
   "contract_version": "0.1",
-  "parameter_status": "untuned",
+  "parameter_status": "frozen_after_tuning",
   "phase": "ablation",
   "nodes": [
     8192,
@@ -28,7 +28,7 @@
     1
   ],
   "tile_features": [
-    32
+    64
   ],
   "max_chunk_edges": [
     128
@@ -49,5 +49,6 @@
     }
   },
   "batch_min_ms": 20,
-  "execution_order_seed": 52062026
+  "execution_order_seed": 52062026,
+  "tuning_manifest_sha256": "dc234d249dc4055fee9b43e34e1f6101e26fed25542e380eadcf382d1f794580"
 }

@@ -1,0 +1,9 @@
+[  8%] Built target test_allocation
+[ 11%] Built target d_scalar
+[ 17%] Built target test_measurement
+[ 37%] Built target ceg5206_a
+[ 45%] Building CXX object CMakeFiles/benchmark_profile.dir/src/benchmark.cpp.o
+[ 45%] Building CXX object CMakeFiles/benchmark_profile.dir/Users/junboxia/Documents/ChatGPT/5206/CEG5206-G5-CA2/member_c/src/contract_adapter.cpp.o
+[ 74%] Built target benchmark
+[ 77%] Linking CXX executable benchmark_profile
+[100%] Built target benchmark_profile

@@ -6,8 +6,10 @@ test_scaling_example (test_entry.EntryTests) ... ok
 test_summary_requires_matching_inputs (test_entry.EntryTests) ... ok
 test_tuning_and_reuse_are_plans (test_entry.EntryTests) ... ok
 test_tuning_execution_checks_linked_implementations (test_entry.EntryTests) ... ok
+test_missing_family_is_rejected (test_selection.SelectionTests) ... ok
+test_selects_joint_geometric_score (test_selection.SelectionTests) ... ok
 
 ----------------------------------------------------------------------
-Ran 8 tests in 0.151s
+Ran 10 tests in 0.157s
 
 OK

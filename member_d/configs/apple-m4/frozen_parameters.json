@@ -1,0 +1,55 @@
+{
+  "selection_rule": "Minimum geometric mean of full-call medians across the two tuning families",
+  "source_manifest_sha256": "dc234d249dc4055fee9b43e34e1f6101e26fed25542e380eadcf382d1f794580",
+  "selected": {
+    "tile_features": 64,
+    "max_chunk_edges": 128,
+    "geometric_mean_seconds": 0.0004068423727229777,
+    "uniform_seconds": 0.000410319015625,
+    "skewed_seconds": 0.0004033951875
+  },
+  "all_scores": [
+    {
+      "tile_features": 64,
+      "max_chunk_edges": 128,
+      "geometric_mean_seconds": 0.0004068423727229777,
+      "uniform_seconds": 0.000410319015625,
+      "skewed_seconds": 0.0004033951875
+    },
+    {
+      "tile_features": 64,
+      "max_chunk_edges": 512,
+      "geometric_mean_seconds": 0.00040932083804648395,
+      "uniform_seconds": 0.000406218109375,
+      "skewed_seconds": 0.000412447265625
+    },
+    {
+      "tile_features": 32,
+      "max_chunk_edges": 512,
+      "geometric_mean_seconds": 0.0004127783948363242,
+      "uniform_seconds": 0.000409646484375,
+      "skewed_seconds": 0.00041593425
+    },
+    {
+      "tile_features": 32,
+      "max_chunk_edges": 128,
+      "geometric_mean_seconds": 0.00041351399753408133,
+      "uniform_seconds": 0.00041235546875,
+      "skewed_seconds": 0.00041467578125
+    },
+    {
+      "tile_features": 16,
+      "max_chunk_edges": 128,
+      "geometric_mean_seconds": 0.0004350647184546478,
+      "uniform_seconds": 0.000433975265625,
+      "skewed_seconds": 0.00043615690625
+    },
+    {
+      "tile_features": 16,
+      "max_chunk_edges": 512,
+      "geometric_mean_seconds": 0.0004486054959568095,
+      "uniform_seconds": 0.000431384765625,
+      "skewed_seconds": 0.000466513671875
+    }
+  ]
+}

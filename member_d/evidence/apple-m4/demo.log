@@ -1,0 +1,15 @@
+[1/6] split_row 63c8ea52f8fa678f
+[2/6] row_static 056388d4d03fe441
+[3/6] row_static ba97be74b5450946
+[4/6] scalar bfcdbf8b8597bd33
+[5/6] split_row 70c3caeaea823dcd
+[6/6] simd af22dc790d615c70
+FP64 validation: 12 reports, 0 failed elements
+Variant          Threads  Median ms  Scalar speedup
+split_row              4      0.388          12.50x
+row_static             4      0.366          13.26x
+row_static             1      1.156           4.20x
+scalar                 1      4.851           1.00x
+split_row              1      1.192           4.07x
+simd                   1      1.188           4.08x
+Demonstration only. Use the archived full campaign for report conclusions.

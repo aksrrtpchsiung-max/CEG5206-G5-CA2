@@ -1,148 +1,122 @@
-# Member D: Unified Benchmark Entry and Handoff v0.1
+# Member D Native Experiments and English Report
 
-## Current deliverables
+D integrates the production A/B/C implementations, validates them on an Apple M4,
+and measures complete aggregation calls. All D documentation, figures, and report
+content are in English. Public algorithm declarations remain contract v0.1.
 
-This work builds on A's `member-a/interface-contract-v0.1` branch. Public declarations
-remain in `member_a/include/ceg5206/contracts.hpp`; D has not copied, changed, or
-frozen A's interface proposal. This directory contains D's implementation and
-supporting agreements for team review. It does not imply B/C approval or include
-A/B/C algorithm implementations.
+## Deliverables
 
-- One entry point: `scripts/run.py list | plan | run`.
-- A C++17 runner that registers five variants and separates preparation, validation,
-  and complete-call timing.
-- Configuration templates for 24 workloads, thread scaling, tuning, and graph reuse.
-- Raw JSON, five CSV tables, a run manifest, failure diagnostics, and memory accounting.
-- An independently buildable default runner. Missing algorithms are unavailable;
-  they are never replaced with fake measurements or another algorithm.
-- Harness tests and a test-only adapter; no actual algorithm performance results.
+- [Experimental report](report/CEG5206_Group5_Experimental_Report.pdf)
+- [Editable report](report/report.md)
+- [English figures in PNG and SVG](figures/)
+- [Audited results and scaling table](report/audited_facts.json)
+- [Native raw evidence](evidence/apple-m4/run-20261110/)
+- [Native build and validation logs](evidence/apple-m4/)
+- [Handoff and integration notes](docs/HANDOFF.md)
+- [Measurement and memory definitions](docs/RESULTS.md)
+- [Validation record](docs/VALIDATION.md)
 
-See the [validation record](docs/VALIDATION.md) for completed checks.
+This integrated branch includes A 43842aa, B 2c8f04f, C 8a06e1b, and D's public
+entry e6921eb, followed by D's native experiment work. Earlier M5 and QEMU data
+are retained in their original member directories but are not mixed into M4
+performance results.
 
-**Available now:** review the interface, build the harness, inspect algorithm
-availability, and generate experiment plans.
-**After algorithms arrive:** integrate A first, verify the smoke validation/timing
-pipeline, then integrate B/C variants individually.
-**Later milestones:** execute tuning/reuse protocols, select parameters, batch very
-short calls, add phase/worker profiling, complete correctness edge cases, and plot results.
-v0.1 only plans tuning/reuse; execution explicitly fails rather than treating
-ordinary timing repetitions as those experiments.
+## Build and native validation
 
-## Run from the repository root
-
-Recommended build, with CMake and a C++17 compiler installed:
+The production B kernel requires AArch64 NEON. The parallel C adapter requires
+OpenMP. On Apple Silicon, install CMake and libomp if needed:
 
 ```bash
-cmake -S member_d -B member_d/build -DCMAKE_BUILD_TYPE=Release
-cmake --build member_d/build
-ctest --test-dir member_d/build --output-on-failure
+brew install cmake libomp
+bash member_d/scripts/build_team.sh
+python3 member_d/scripts/run.py list --binary member_d/build/team/benchmark
 ```
 
-Without CMake, Clang can build the default runner with no algorithms linked:
+The script supplies Homebrew's keg-only OpenMP paths to Apple Clang and builds
+`benchmark` plus `benchmark_profile`. Set `OMP_PREFIX` if libomp is elsewhere.
+On native AArch64 Linux, use the same script with a compiler that finds OpenMP.
+
+The production executable has no worker-counting or phase-timing hooks. The
+separate diagnostic executable compiles the same C source with guarded hooks.
+C++ allocation accounting is active in both executables and records high-water
+requested bytes; its metadata is separate from process peak RSS.
+
+A/B/C production kernels are called through shared `prepare/run` factories.
+B's edge-major NEON control is additionally registered as `edge_major` for the
+independent tiling ablation. It is not substituted for any production variant.
+
+## Reproduce the campaign
+
+The saved configuration targets this 10-core M4: four performance plus six
+efficiency cores, 24 GiB memory, macOS 15.7.7, Apple Clang 17 and libomp 23.1.1.
+Use a fresh output directory:
 
 ```bash
-mkdir -p member_d/build
-clang++ -std=c++17 -O3 -Wall -Wextra -Wpedantic -fno-fast-math -ffp-contract=off -I member_a/include -I member_d/include member_d/src/benchmark.cpp -o member_d/build/benchmark
+bash member_d/scripts/run_campaign.sh member_d/evidence/apple-m4/new-run
 ```
+
+The script runs smoke and tuning, selects one pair using the geometric mean of
+the two independent tuning graphs, freezes parameters, then runs main, scaling,
+reuse, ablation and diagnostics. It updates `configs/apple-m4` with the newly
+selected pair. Do not treat a future run's selected pair as fixed to this run's
+outcome. Adjust physical cores, hardware metadata, power policy and paths before
+running on another machine. Do not use an emulator for final performance claims.
+
+Execution order is deterministically randomized. The main grid has 24 workloads
+and five variants at one thread. Scaling uses 1, 2, 4, 8 and 10 requested threads.
+Reuse uses R=1/10/100 on n=8192, mean degree=32, f=64, including one-thread controls
+and one/four-thread parallel schedules. Power source and charge are saved per case.
+No frequency lock or hard core affinity is claimed.
+
+Every case validates both X inputs twice, warms up, calibrates batches and records
+15 batch averages. Necessary output initialization, synchronization and merging
+remain inside each timed complete call. Prepare is separately measured 10 times.
+Raw JSON and CSV retain actual batch sizes and the R-call sequence measurements.
+
+## Generate English figures and report
+
+With Python 3.9 or later, install the report dependencies into a virtual environment
+or other isolated environment:
 
 ```bash
-python3 member_d/scripts/run.py list
-python3 member_d/scripts/run.py plan --config member_d/configs/smoke.json --out member_d/out/smoke-plan.json
-python3 member_d/scripts/run.py plan --config member_d/configs/main.json --out member_d/out/main-plan.json
+python3 -m pip install -r member_d/requirements-report.txt
+python3 member_d/scripts/analyze.py --campaign member_d/evidence/apple-m4/run-20261110 --figures member_d/figures --report member_d/report
+python3 member_d/scripts/write_report.py --campaign member_d/evidence/apple-m4/run-20261110 --figures member_d/figures --report member_d/report
 ```
 
-All five algorithms are currently false in the default build. The main plan contains
-24 workloads × 5 variants = 120 single-thread cases. No algorithms are executed and
-no measurements are generated by `plan`.
-The smoke configuration checks integration at f=1/17/65; it does not replace A's
-fixed signed-weight, empty-row, self-loop, or other correctness cases.
+Analysis checks phase completion, validation results, input digests, positive
+samples, worker edge coverage and allocation budgets before reporting facts.
+Charts are generated from raw case records. The editable Markdown and PDF are
+produced together from the same audited data. No simulated measurements are used.
 
-## Integrating actual implementations
-
-Use the same public header rather than private copies. Implement the factories
-against the jointly agreed interface and provide source paths to D's build.
-
-| Variant ID | Factory | Owner |
-|---|---|---|
-| scalar | `a::prepare_scalar` | A |
-| simd | `b::prepare_simd` | B |
-| row_static | `c::prepare_static` | C |
-| row_dynamic | `c::prepare_dynamic` | C |
-| split_row | `c::prepare_split` | C |
-
-A must also provide generation, validation, the FP64 oracle, check_close, and
-degree_stats. C provides chunk_plan_view and A provides audit_chunk_plan.
-See the [handoff agreement](docs/HANDOFF.md).
-
-Example CMake configuration for A: replace the placeholder paths before running.
+## Entry point and output files
 
 ```bash
-cmake -S member_d -B member_d/build-a -DD_ENABLE_A=ON '-DD_A_SOURCES=/absolute/path/graph.cpp;/absolute/path/check.cpp' '-DD_SCALAR_SOURCES=/absolute/path/scalar.cpp'
-cmake --build member_d/build-a
+python3 member_d/scripts/run.py plan --config member_d/configs/apple-m4/main.json --out member_d/out/plan.json
+python3 member_d/scripts/run.py run --config member_d/configs/apple-m4/smoke.json --binary member_d/build/team/benchmark --metadata member_d/configs/apple-m4/hardware.json --out member_d/out/new-smoke
 ```
 
-Do not include scalar sources in `D_A_SOURCES`. Only the scalar translation unit
-has automatic vectorization disabled; other sources retain normal optimization.
-For B and C, use `D_ENABLE_B / D_B_SOURCES` and `D_ENABLE_C / D_C_SOURCES`.
-C currently depends on B's row-range kernel. B/C experiments also need A's input
-and validation modules. OpenMP implementations use `-DD_USE_OPENMP=ON`;
-additional libraries use `D_EXTRA_LIBRARIES`. Document thread-library and ISA flags
-when handing over implementations.
+Output directories must be new. Missing algorithms fail explicitly. A failed case
+marks the manifest failed and preserves diagnostics; partial results are not a
+completed experiment. Each phase includes configuration, source commit/patch,
+binary SHA-256, runtime environment, execution order, raw calls, validation,
+summary, setup/memory and degree tables. Each case JSON additionally includes
+input digests, preparation samples, power observations and optional diagnostics.
 
-## First integration run after linking A
+## Scope
 
-1. Copy `configs/hardware.example.json` and fill in actual hardware, build flags,
-   and execution policies.
-2. Confirm scalar availability with `list --binary ...`.
-3. Run the command below. The output directory must not already exist, so separate
-   experiment batches cannot be mixed accidentally.
+The report covers weighted CPU aggregation only. It does not claim full GNN
+training speed, accuracy, GPU performance, hardware-counter attribution, hard
+P/E affinity, or a new native M4 ThreadSanitizer result. See the report for
+within-run variation, power records and limitations. The template configurations
+outside `configs/apple-m4` remain examples and are not the frozen M4 campaign.
+
+## Demonstrate correctness and a representative comparison
 
 ```bash
-python3 member_d/scripts/run.py run --config member_d/configs/smoke.json --binary member_d/build-a/benchmark --metadata member_d/configs/hardware.local.json --out member_d/out/first-real-smoke
+OMP_DYNAMIC=FALSE OMP_PROC_BIND=FALSE OMP_WAIT_POLICY=ACTIVE KMP_BLOCKTIME=200 python3 member_d/scripts/demo.py --out member_d/out/new-demo
 ```
 
-Smoke outputs are marked `integration_only`. Before formal main/scaling runs,
-perform actual tuning, save the selected parameters, set
-`parameter_status: frozen_after_tuning`, and complete peak-memory review.
-Changing the status field alone does not constitute tuning.
-`scaling.example.json` assumes P=4; update P and the thread list to match the
-physical cores actually used. Tuning uses min(4,P) threads.
-Seeds follow A's proposed engineering convention, pending confirmation; tuning
-and formal graph seeds are separate.
-
-## Outputs and timing
-
-Each case runs in a separate process. Within that process, prepare runs once,
-validation precedes at least 5 warmups and 10 timed repetitions, and two
-pregenerated X arrays alternate by repetition parity. Timing covers exactly one
-complete `PreparedKernel.run`. Necessary clearing, scheduling, synchronization,
-and merging belong inside run. A checksum scans Y after each timed call and can
-affect the next call's cache state. Every variant follows this warm-start protocol;
-these are not cold-cache measurements.
-
-- `manifest.json`: configuration, hardware record, commit, dirty-worktree flag,
-  binary SHA-256, and run status.
-- `cases/<case_id>.json`: actual results, input digest, validation of both X arrays,
-  individual timings, statistics, memory, and degree data.
-- `calls.csv / validation.csv / summary.csv / setup_memory.csv / degree.csv`:
-  analysis tables.
-- `failure.json`: failed case, exit code, and diagnostics. A failed manifest means
-  any completed cases are partial results only.
-
-Median and IQR use linear interpolation at sorted index `(N-1)*q`. Speedups are
-filled only when a matching baseline exists; otherwise they remain blank.
-See the [results and measurement agreement](docs/RESULTS.md).
-
-## Test the harness
-
-```bash
-clang++ -std=c++17 -O2 -Wall -Wextra -Wpedantic -I member_a/include -I member_d/include member_d/tests/test_measurement.cpp -o member_d/build/test_measurement
-member_d/build/test_measurement
-clang++ -std=c++17 -O2 -Wall -Wextra -Wpedantic -fno-fast-math -ffp-contract=off -DD_ENABLE_A -DD_TEST_ONLY -I member_a/include -I member_d/include member_d/src/benchmark.cpp member_d/tests/fake_a.cpp -o member_d/build/test_fixture_runner
-python3 -m unittest discover -s member_d/tests -v
-```
-
-`tests/fake_a.cpp` verifies only the harness connection pipeline. It requires an
-explicit `D_TEST_ONLY` definition and is excluded from the production CMake target.
-It is not A's algorithm or oracle implementation. Tests delete their temporary
-outputs; those timings are not performance evidence.
+The demo uses actual A/B/C implementations, validates against FP64 and prints a
+small scalar/SIMD/whole-row/split comparison. It does not replace the complete
+archived campaign. Results go to a new local output directory.

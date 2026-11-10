@@ -1,0 +1,145 @@
+diff --git a/member_d/configs/apple-m4/ablation.json b/member_d/configs/apple-m4/ablation.json
+index 551a10f..7d81c45 100644
+--- a/member_d/configs/apple-m4/ablation.json
++++ b/member_d/configs/apple-m4/ablation.json
+@@ -1,6 +1,6 @@
+ {
+   "contract_version": "0.1",
+-  "parameter_status": "untuned",
++  "parameter_status": "frozen_after_tuning",
+   "phase": "ablation",
+   "nodes": [
+     8192,
+@@ -28,7 +28,7 @@
+     1
+   ],
+   "tile_features": [
+-    32
++    64
+   ],
+   "max_chunk_edges": [
+     128
+@@ -49,5 +49,6 @@
+     }
+   },
+   "batch_min_ms": 20,
+-  "execution_order_seed": 52062026
++  "execution_order_seed": 52062026,
++  "tuning_manifest_sha256": "dc234d249dc4055fee9b43e34e1f6101e26fed25542e380eadcf382d1f794580"
+ }
+diff --git a/member_d/configs/apple-m4/diagnostics.json b/member_d/configs/apple-m4/diagnostics.json
+index 4a2c747..525cac1 100644
+--- a/member_d/configs/apple-m4/diagnostics.json
++++ b/member_d/configs/apple-m4/diagnostics.json
+@@ -1,6 +1,6 @@
+ {
+   "contract_version": "0.1",
+-  "parameter_status": "untuned",
++  "parameter_status": "frozen_after_tuning",
+   "phase": "diagnostics",
+   "nodes": [
+     65536
+@@ -26,7 +26,7 @@
+     10
+   ],
+   "tile_features": [
+-    32
++    64
+   ],
+   "max_chunk_edges": [
+     128
+@@ -47,5 +47,6 @@
+     }
+   },
+   "batch_min_ms": 0,
+-  "execution_order_seed": 52062026
++  "execution_order_seed": 52062026,
++  "tuning_manifest_sha256": "dc234d249dc4055fee9b43e34e1f6101e26fed25542e380eadcf382d1f794580"
+ }
+diff --git a/member_d/configs/apple-m4/main.json b/member_d/configs/apple-m4/main.json
+index 2bd47a5..0b43243 100644
+--- a/member_d/configs/apple-m4/main.json
++++ b/member_d/configs/apple-m4/main.json
+@@ -1,6 +1,6 @@
+ {
+   "contract_version": "0.1",
+-  "parameter_status": "untuned",
++  "parameter_status": "frozen_after_tuning",
+   "phase": "single",
+   "nodes": [
+     8192,
+@@ -30,7 +30,7 @@
+     1
+   ],
+   "tile_features": [
+-    32
++    64
+   ],
+   "max_chunk_edges": [
+     128
+@@ -51,5 +51,6 @@
+     }
+   },
+   "batch_min_ms": 20,
+-  "execution_order_seed": 52062026
++  "execution_order_seed": 52062026,
++  "tuning_manifest_sha256": "dc234d249dc4055fee9b43e34e1f6101e26fed25542e380eadcf382d1f794580"
+ }
+diff --git a/member_d/configs/apple-m4/reuse.json b/member_d/configs/apple-m4/reuse.json
+index 10168ae..5519635 100644
+--- a/member_d/configs/apple-m4/reuse.json
++++ b/member_d/configs/apple-m4/reuse.json
+@@ -1,6 +1,6 @@
+ {
+   "contract_version": "0.1",
+-  "parameter_status": "untuned",
++  "parameter_status": "frozen_after_tuning",
+   "phase": "reuse",
+   "nodes": [
+     8192
+@@ -27,7 +27,7 @@
+     4
+   ],
+   "tile_features": [
+-    32
++    64
+   ],
+   "max_chunk_edges": [
+     128
+@@ -53,5 +53,6 @@
+     1,
+     10,
+     100
+-  ]
++  ],
++  "tuning_manifest_sha256": "dc234d249dc4055fee9b43e34e1f6101e26fed25542e380eadcf382d1f794580"
+ }
+diff --git a/member_d/configs/apple-m4/scaling.json b/member_d/configs/apple-m4/scaling.json
+index c775366..7d3ccc0 100644
+--- a/member_d/configs/apple-m4/scaling.json
++++ b/member_d/configs/apple-m4/scaling.json
+@@ -1,6 +1,6 @@
+ {
+   "contract_version": "0.1",
+-  "parameter_status": "untuned",
++  "parameter_status": "frozen_after_tuning",
+   "phase": "scaling",
+   "nodes": [
+     65536
+@@ -31,7 +31,7 @@
+     10
+   ],
+   "tile_features": [
+-    32
++    64
+   ],
+   "max_chunk_edges": [
+     128
+@@ -53,5 +53,6 @@
+   },
+   "batch_min_ms": 20,
+   "execution_order_seed": 52062026,
+-  "physical_cores": 10
++  "physical_cores": 10,
++  "tuning_manifest_sha256": "dc234d249dc4055fee9b43e34e1f6101e26fed25542e380eadcf382d1f794580"
+ }

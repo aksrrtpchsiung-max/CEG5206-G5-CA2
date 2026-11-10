@@ -1,85 +1,79 @@
-# Experiment and Results Agreement v0.1
+# Measurement and Results Definitions
 
-## Algorithm lifecycle and timing
+## Lifecycle and statistics
 
-Generate canonical edges/CSR/X → validate → prepare (separately timed) → audit split
-chunks → repeatedly validate both X arrays → release oracle edges/reference →
-warm up → time complete run calls → save results.
+Generate canonical edges, CSR and two X arrays; validate; measure 10 preparations;
+audit split layout; validate X0/X1/X0/X1 with NaN-prefilled Y; release oracle edges
+and FP64 reference; warm up; calibrate; record 15 batches; export results.
 
-Use C++ steady_clock. Observe all Y elements between calls without assuming full
-cache residency. Main/single runs use matching seeds/configuration to construct
-equivalent inputs. Separate variant processes avoid retaining several workspaces
-at once.
+Calibration doubles call groups until a batch reaches 20 ms or 1024 groups. Smoke
+uses 5 ms and diagnostics uses one unbatched call. An R-reuse group contains
+exactly R complete calls. All variants alternate the two X arrays by the continuous
+call index. Timers surround full groups only. The final batch output is observed
+after timing. median_seconds describes per-call batch averages;
+median_sequence_seconds describes per-R-call-group averages. These are warm-start
+measurements. Consecutive samples are not independent cross-day replications.
 
-Main timings exclude graph/feature generation, allocation, validation, file I/O,
-and prepare. They include all necessary initialization, scheduling, synchronization,
-and merging inside run. Report graph sampling, weight preparation, CSR construction,
-and variant preparation separately. shared_prep = weight_preparation +
-csr_construction; report sampling separately.
+Median and quartiles use linear interpolation at sorted index (N-1)*q.
+IQR=Q(.75)-Q(.25). Primary timings include necessary clearing, aggregation,
+scheduling, synchronization and merging; they exclude allocation, generation,
+prepare, validation and file I/O. Variant prepare is a median of 10 fresh states;
+state destruction is outside its timer. Shared setup is weight preparation plus
+CSR construction, each recorded once per case. Sampling is separate.
 
-## Tables
+T(R)=shared_prep+median_variant_prep+median_R_call_sequence. Feature generation,
+graph sampling and validation are outside this reuse convention. The same graph
+and state remain live during the sequence. Reuse does not remove per-call merges.
 
-CSV files use UTF-8 and snake_case, seconds for time, and bytes for allocation.
-Missing coordinates/baselines are blank; non-finite relative error is inf.
-Every table includes case configuration, case_id, and run_id. Within a batch,
-run_id equals case_id; use the manifest to distinguish batches. case_id is the
-first 16 hexadecimal digits of the normalized configuration's SHA-256, not an
-input-content digest.
+## Files and units
 
-| Table | Main fields |
-|---|---|
-| Shared configuration | contract_version, generator_version, phase, variant, family, n, m, f, graph_seed, feature_seed_0/1, threads, tile_features, max_chunk_edges, warmup, repetitions, memory_budget_bytes |
-| calls | repetition (zero-based), batch_calls (currently 1), feature_seed, call_seconds |
-| validation | feature_seed, passed, checked, failed, atol, rtol, max_abs_error, max_rel_error, max_scaled_error, worst_row, worst_feature |
-| summary | median_seconds, iqr_seconds, scalar_speedup, thread_speedup, nominal_gflops, checksum |
-| setup_memory | graph_sampling_seconds, weight_preparation_seconds, csr_construction_seconds, shared_prep_seconds, variant_prep_seconds, graph_bytes, feature_bytes, output_bytes, descriptor_bytes, partial_bytes, other_workspace_bytes, validation_retained_bytes, performance_retained_bytes |
-| degree | degree_min/max/mean/median/p90/p99, empty_rows |
+CSV files are UTF-8 with stable snake_case names. Time is seconds, capacity is
+bytes, repetition starts at zero, missing baselines/coordinates are blank, and
+non-finite relative error is inf. Tables are calls, validation, summary,
+setup_memory and degree. Configuration accompanies each row. run_id equals the
+configuration-derived case_id within its parent manifest. case_id is not an input
+digest. Input digest is FNV-1a64 over native bytes of row_ptr, col_idx, values,
+X0 and X1, intended for consistency checks on the same architecture.
 
-scalar_speedup = matching single-thread scalar median / current median.
-thread_speedup = matching single-thread median of the same variant / current median.
-Both require matching family/n/m/f/seeds/tile/chunk; leave blank without a baseline.
-nominal_gflops = 2*m*f/(1e9*t), excluding extra merge operations.
-IQR = Q(.75)-Q(.25), with linear interpolation at sorted index (N-1)*q.
+Raw calls include batch_calls, batch_groups, reuse_calls, feature_seed at batch
+start, call_seconds and sequence_seconds. X alternates throughout the batch;
+a starting seed does not imply all calls used one seed. Summary speedups require
+matching family/n/m/f/seeds/tile/chunk/R and the appropriate scalar or own-variant
+one-thread baseline. Nominal throughput is 2*m*f/(1e9*t), excluding extra merges.
 
-## Memory accounting and limits
+Per-case JSON retains 10 preparation samples, two final validation reports, input
+digest, power source/charge, and diagnostic samples when enabled. Every validation
+execution must pass before any timing output is accepted. The two stored reports
+are the final X0/X1 checks after four validation executions.
 
-The budget is at most 2^30 bytes. Logical lower bounds: CSR=8*(n+1)+8*m;
-two X arrays plus Y=12*n*f; partials=4*f*C_s, counting only chunks of split rows.
-Use actual vector capacity*sizeof(T) and implementation-reported workspace.
-Logical sizes must not hide padding or reserved capacity. Check lower bounds,
-post-generation capacity, post-prepare capacity, and reference capacity. Release
-reference and oracle edges before performance timing.
+## Memory evidence
 
-**validation_retained_bytes is the simultaneously retained size of known arrays,
-not an actual peak measurement.** The public interface cannot currently observe
-generator/prepare temporary peaks or prevent an oversized allocation before prepare
-returns. Therefore this value is not named validation_peak_bytes. Before formal
-experiments, A/C must supply peak-memory evidence and D must record the method and
-results before setting peak_memory_verified=true in hardware metadata. This flag
-is a manual review declaration, not an automatic proof; record evidence in notes.
-RSS may include runtime allocations and thread stacks and must be distinguished
-from the project array budget. Allocated bytes are not DRAM traffic.
+The logical payload is CSR=8*(n+1)+8*m; two X arrays plus Y=12*n*f;
+partials=4*f*C_s for chunks of split rows only. Retained arrays use actual vector
+capacity and sizeof, including descriptor padding. Workspace fields do not overlap.
+Validation retained bytes are not labeled as peak bytes.
 
-## Configurations and phases
+An operator-new tracker measures the high-water sum of requested live C++
+allocations over all phases, including unordered-set nodes, sorting temporaries,
+worker bins and vector capacity. It excludes allocator bookkeeping and runtime
+malloc/mmap allocations. getrusage process peak RSS is separately retained;
+it includes the allocator/runtime/stacks and has a different interpretation.
+The analyzer checks measured C++ peaks against the 1 GiB array budget. RSS is
+reported rather than equated with array bytes or DRAM traffic.
 
-- smoke: initial integration only, not final performance evidence. Missing
-  algorithms or failed validation stop execution.
-- main: 24 workloads × five variants, single-threaded, totaling 120 cases.
-- scaling.example: assumes P=4. Update P and the thread list to the actual physical
-  cores used.
-- tuning: independent graph seeds, six parameter pairs × two graphs, min(4,P)
-  threads. A later executor selects by the geometric mean of complete split-call times.
-- reuse: plans R=1/10/100. A later executor measures shared and variant-specific
-  preparation plus R complete calls, alternating two X arrays.
+## Experimental controls and interpretation
 
-The last two phases only generate plans in v0.1 and cannot execute. Main/scaling
-can execute after actual algorithms are linked, parameters are genuinely frozen,
-and peak memory is reviewed. Before complete experiments, also validate fixed
-fixtures, empty graphs, isolated nodes, explicit self-loops, signed weights, hubs,
-chunk boundaries, feature tails, and races. Smoke success is not full project
-correctness acceptance.
+The campaign uses separate tuning seeds, freezes one selected pair and then runs
+24 single-thread workloads, selected thread-scaling cases, R-reuse, independent
+SIMD/tiling ablation and separate phase/worker diagnostics. Selection minimizes
+the geometric mean of two full split-call medians at min(4,P) threads. Case order
+is deterministically shuffled. Every phase records actual configuration and order.
 
-Failures write failure.json and mark the manifest failed. Completed cases are
-available for diagnosis, not proof of a complete successful experiment. Output
-directories must be new. Missing implementations create no performance directory;
-formal result tables are never filled with simulated timings.
+No hard affinity or frequency control is claimed. The M4 contains four P and six
+E cores. Equal edge counts need not mean equal elapsed work; dynamic scheduling
+can properly assign more edges to faster cores. Instrumented phase medians are
+supporting diagnostics and are not substituted for uninstrumented timings.
+
+Failure preserves diagnostics and marks the manifest failed. Completed subsets
+are partial evidence. Fresh output directories prevent mixing runs. Formal M4
+results are not mixed with earlier M5, QEMU or portable-shim measurements.

@@ -1,0 +1,21 @@
+machdep.cpu.brand_string: Apple M4
+hw.memsize: 25769803776
+hw.physicalcpu: 10
+hw.logicalcpu: 10
+hw.perflevel0.physicalcpu: 4
+hw.perflevel1.physicalcpu: 6
+hw.perflevel0.l1icachesize: 196608
+hw.perflevel0.l1dcachesize: 131072
+hw.perflevel0.l2cachesize: 16777216
+hw.perflevel0.cpusperl2: 4
+hw.perflevel1.l1icachesize: 131072
+hw.perflevel1.l1dcachesize: 65536
+hw.perflevel1.l2cachesize: 4194304
+hw.perflevel1.cpusperl2: 6
+ProductName:		macOS
+ProductVersion:		15.7.7
+BuildVersion:		24G720
+Apple clang version 17.0.0 (clang-1700.0.13.3)
+Target: arm64-apple-darwin24.6.0
+Thread model: posix
+InstalledDir: /Library/Developer/CommandLineTools/usr/bin
