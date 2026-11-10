@@ -130,11 +130,42 @@ def generate(campaign, figures, report):
     save(fig,'05_graph_reuse')
     # 6: phase instrumentation of actual C source, separate from production timings.
     rows=[pick('diagnostics','split_row',fam,65536,32,f,p) for fam,f,p in __import__('itertools').product(('uniform','skewed'),(16,256),(4,10))]
-    fig,ax=plt.subplots(figsize=(9,3.7),layout='constrained');bottom=np.zeros(8)
-    for field,label,color in [('initialization_seconds','Initialization','#abb4bf'),('aggregation_seconds','Aggregation','#2364aa'),('merge_seconds','Merge','#d17b16')]:
-        vals=np.array([statistics.median(z[field] for z in r['result']['diagnostics'])*1e3 for r in rows]);ax.bar(range(8),vals,bottom=bottom,label=label,color=color);bottom+=vals
-    ax.set_xticks(range(8),[f"{x['case']['family'][0].upper()} f={x['case']['f']}\n{x['case']['threads']} threads" for x in rows],fontsize=8)
-    ax.set_ylabel('Instrumented phase latency (ms)');ax.legend(ncol=3,loc='upper left');ax.grid(axis='y',alpha=.2);save(fig,'06_split_phase_breakdown')
+    # Separate units reveal small phases without enlarging their share of the total.
+    fig,(overall,detail)=plt.subplots(1,2,figsize=(10.5,4.8),sharey=True,
+                                    gridspec_kw={'width_ratios':[1,1.05]},layout='constrained')
+    positions=np.arange(len(rows));left=np.zeros(len(rows))
+    phase_values={field:np.array([statistics.median(z[field] for z in r['result']['diagnostics']) for r in rows])
+                  for field in ('initialization_seconds','aggregation_seconds','merge_seconds')}
+    phase_styles=[('initialization_seconds','Initialization','#7d8998'),
+                  ('aggregation_seconds','Aggregation','#2364aa'),
+                  ('merge_seconds','Merge','#d17b16')]
+    for field,label,color in phase_styles:
+        values=phase_values[field]*1e3
+        overall.barh(positions,values,left=left,height=.62,label=label,color=color)
+        left+=values
+    for pos,total in zip(positions,left):
+        overall.text(total+.65,pos,f'{total:.2f}',va='center',fontsize=10,color='#263647')
+    overall.set_xlim(0,left.max()*1.18)
+    overall.set_yticks(positions,[f"{x['case']['family'].title()} | f={x['case']['f']} | {x['case']['threads']}T" for x in rows],fontsize=10)
+    overall.invert_yaxis()
+    overall.set_title('(a) Overall phase medians',fontsize=12)
+    overall.set_xlabel('Phase latency (ms)',fontsize=11)
+    offsets={'initialization_seconds':-.17,'merge_seconds':.17}
+    for field,label,color in (phase_styles[0],phase_styles[2]):
+        values=phase_values[field]*1e6
+        detail.barh(positions+offsets[field],values,height=.29,label=label,color=color)
+        for pos,value in zip(positions+offsets[field],values):
+            detail.text(value+2,pos,f'{value:.1f}',va='center',fontsize=10,color='#263647')
+    detail.set_xlim(0,max(phase_values['initialization_seconds'].max(),phase_values['merge_seconds'].max())*1e6*1.23)
+    detail.set_title('(b) Initialization and merge',fontsize=12)
+    detail.set_xlabel('Phase latency (us)',fontsize=11)
+    for ax in (overall,detail):
+        ax.grid(axis='x',alpha=.2)
+        ax.set_axisbelow(True)
+        ax.tick_params(axis='y',length=0)
+    handles,labels=overall.get_legend_handles_labels()
+    fig.legend(handles,labels,loc='outside lower center',ncol=3,fontsize=10,frameon=False)
+    save(fig,'06_split_phase_breakdown')
     # 7: edge imbalance measures distribution, not time imbalance on heterogeneous cores.
     fig,axs=plt.subplots(2,2,figsize=(9,5.3),layout='constrained')
     imbalance_rows=[]

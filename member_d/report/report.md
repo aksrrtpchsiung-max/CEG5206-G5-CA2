@@ -147,7 +147,7 @@ The imbalance metric measures edge distribution, not elapsed-time balance. On a 
 
 ## Aggregation and merge diagnostics
 
-![Figure 8. Split-row initialization, aggregation, and merging measured with instrumentation in C's actual source. U and S denote uniform and skewed graphs. These are diagnostic phase medians, not the primary uninstrumented timing results.](../figures/06_split_phase_breakdown.png)
+![Figure 8. Split-row diagnostic medians for the same eight cases. Left: overall phases in milliseconds; labels give the sum of phase medians. Right: initialization and merge in microseconds, with each value labeled. T denotes requested threads. The panels use different units. These instrumented measurements are separate from the primary production timings.](../figures/06_split_phase_breakdown.png)
 
 The diagnostic target is built separately with CEG5206_D_DIAGNOSTICS. The production target contains no diagnostic phase timers or worker-edge increments. Each phase timer includes the associated OpenMP region and its end synchronization. Worker counting can perturb cache and scheduling behavior, so phase values explain structure and overhead but are not substituted into the primary speedup results.
 
