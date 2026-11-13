@@ -1,4 +1,4 @@
-在项目根目录运行：
+Run from the project root:
 
 ```bash
 bash member_d/scripts/build_team.sh
