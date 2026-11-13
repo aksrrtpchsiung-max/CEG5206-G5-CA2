@@ -1,13 +1,9 @@
-# CEG5206 Group 5 CPU Graph Aggregation
+需要 Apple Silicon Mac、Python 3 和 Homebrew。在项目目录运行：
 
-This integrated branch contains the production A/B/C implementations and D's
-native Apple M4 experimental pipeline, raw evidence, English figures and report.
+```bash
+brew install cmake libomp
+bash member_d/scripts/build_team.sh
+python3 member_d/scripts/demo.py --out results/demo
+```
 
-- [Member A baseline generation and correctness](member_a/README.md)
-- [Member B feature tiling and NEON](member_b/README.md)
-- [Member C row scheduling and split reduction](member_c/README.md)
-- [Member D native experiments and report](member_d/README.md)
-- [English experimental report](member_d/report/CEG5206_Group5_Experimental_Report.pdf)
-
-The computation is weighted CSR aggregation Y=AX on CPU, not full GNN training.
-See Member D's documentation for reproducible builds, tests and measurement.
+结果保存在 `results/demo/results/summary.csv`。再次运行时换一个输出目录，例如 `results/demo2`。

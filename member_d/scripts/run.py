@@ -162,7 +162,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("plan", "list", "run"))
     parser.add_argument("--config", type=Path)
-    parser.add_argument("--binary", type=Path, default=ROOT / "member_d/build/benchmark")
+    parser.add_argument("--binary", type=Path, default=ROOT / "build/benchmark")
     parser.add_argument("--out", type=Path)
     parser.add_argument("--metadata", type=Path, help="JSON hardware/build record; required for execution")
     args = parser.parse_args()

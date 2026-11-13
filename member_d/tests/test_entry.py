@@ -1,6 +1,8 @@
 import importlib.util
 import json
+import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -35,10 +37,10 @@ class EntryTests(unittest.TestCase):
         self.assertEqual({c["threads"] for c in cases}, {1, 2, 4})
         self.assertTrue(all(c["threads"] == 1 for c in cases if c["variant"] in ("scalar", "simd")))
 
-    def test_default_binary_cannot_produce_fake_results(self):
-        binary = ROOT / "build/benchmark"
+    def test_unlinked_binary_cannot_produce_fake_results(self):
+        binary = Path(os.environ.get("D_UNLINKED_BINARY", ROOT.parent / "build/test_unlinked_runner"))
         if not binary.exists():
-            self.skipTest("build default benchmark first")
+            self.skipTest("build test_unlinked_runner first")
         linked = entry.availability(binary)
         self.assertFalse(any(linked.values()))
         result = subprocess.run([str(binary), "scalar"], capture_output=True, text=True)
@@ -46,14 +48,14 @@ class EntryTests(unittest.TestCase):
         self.assertEqual(result.stdout, "")
         with tempfile.TemporaryDirectory() as temp:
             out = Path(temp) / "results"
-            result = subprocess.run(["python3", str(ROOT / "scripts/run.py"), "run", "--config",
-                                     str(ROOT / "configs/smoke.json"), "--out", str(out)], capture_output=True, text=True)
+            result = subprocess.run([sys.executable, str(ROOT / "scripts/run.py"), "run", "--config",
+                                     str(ROOT / "configs/smoke.json"), "--binary", str(binary), "--out", str(out)], capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("not linked", result.stderr)
             self.assertFalse(out.exists())
 
     def test_tuning_execution_checks_linked_implementations(self):
-        result = subprocess.run(["python3", str(ROOT / "scripts/run.py"), "run", "--config", str(ROOT / "configs/tuning.json")], capture_output=True, text=True)
+        result = subprocess.run([sys.executable, str(ROOT / "scripts/run.py"), "run", "--config", str(ROOT / "configs/tuning.json"), "--binary", os.environ.get("D_UNLINKED_BINARY", str(ROOT.parent / "build/test_unlinked_runner"))], capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("not linked", result.stderr)
 
@@ -75,7 +77,7 @@ class EntryTests(unittest.TestCase):
             self.assertEqual(float(rows[1]["scalar_speedup"]), 2)
 
     def test_linked_fixture_end_to_end(self):
-        binary = ROOT / "build/test_fixture_runner"
+        binary = Path(os.environ.get("D_FIXTURE_BINARY", ROOT.parent / "build/test_fixture_runner"))
         if not binary.exists():
             self.skipTest("build test_fixture_runner first")
         cfg = entry.read_config(ROOT / "configs/smoke.json")
@@ -87,7 +89,7 @@ class EntryTests(unittest.TestCase):
             (temp / "config.json").write_text(json.dumps(cfg))
             (temp / "hardware.json").write_text(json.dumps(metadata))
             out = temp / "out"
-            result = subprocess.run(["python3", str(ROOT / "scripts/run.py"), "run", "--config", str(temp / "config.json"),
+            result = subprocess.run([sys.executable, str(ROOT / "scripts/run.py"), "run", "--config", str(temp / "config.json"),
                                      "--binary", str(binary), "--metadata", str(temp / "hardware.json"), "--out", str(out)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             manifest = json.loads((out / "manifest.json").read_text())

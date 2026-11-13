@@ -73,6 +73,16 @@ void validate_prepare(CsrView graph, FeatureCount f, const RunConfig& config) {
 #endif
 }
 
+void aggregate_row(CsrView graph, DenseConstView x, DenseView y,
+                   const RunConfig& config, NodeId row) {
+#ifdef CEG5206_D_DIAGNOSTICS
+    member_d::profile::edges(graph.row_ptr.data[row + 1] - graph.row_ptr.data[row]);
+#endif
+    b::row_range_simd(graph, x, row, graph.row_ptr.data[row], graph.row_ptr.data[row + 1],
+                     {y.values.data + static_cast<std::size_t>(row) * x.f, x.f},
+                     config.tile_features);
+}
+
 void run_static(CsrView graph, DenseConstView x, DenseView y,
                 const RunConfig& config, KernelState*) {
 #ifdef CEG5206_D_DIAGNOSTICS
@@ -83,14 +93,7 @@ void run_static(CsrView graph, DenseConstView x, DenseView y,
 #endif
     for (std::int64_t signed_row = 0;
          signed_row < static_cast<std::int64_t>(graph.n); ++signed_row) {
-        const auto row = static_cast<NodeId>(signed_row);
-#ifdef CEG5206_D_DIAGNOSTICS
-        member_d::profile::edges(graph.row_ptr.data[row + 1] - graph.row_ptr.data[row]);
-#endif
-        b::row_range_simd(
-            graph, x, row, graph.row_ptr.data[row], graph.row_ptr.data[row + 1],
-            {y.values.data + static_cast<std::size_t>(row) * x.f, x.f},
-            config.tile_features);
+        aggregate_row(graph, x, y, config, static_cast<NodeId>(signed_row));
     }
 #ifdef CEG5206_D_DIAGNOSTICS
     member_d::profile::end(member_d::profile::data.aggregation);
@@ -107,14 +110,7 @@ void run_dynamic(CsrView graph, DenseConstView x, DenseView y,
 #endif
     for (std::int64_t signed_row = 0;
          signed_row < static_cast<std::int64_t>(graph.n); ++signed_row) {
-        const auto row = static_cast<NodeId>(signed_row);
-#ifdef CEG5206_D_DIAGNOSTICS
-        member_d::profile::edges(graph.row_ptr.data[row + 1] - graph.row_ptr.data[row]);
-#endif
-        b::row_range_simd(
-            graph, x, row, graph.row_ptr.data[row], graph.row_ptr.data[row + 1],
-            {y.values.data + static_cast<std::size_t>(row) * x.f, x.f},
-            config.tile_features);
+        aggregate_row(graph, x, y, config, static_cast<NodeId>(signed_row));
     }
 #ifdef CEG5206_D_DIAGNOSTICS
     member_d::profile::end(member_d::profile::data.aggregation);

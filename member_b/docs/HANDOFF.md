@@ -60,26 +60,14 @@ The implementation does not retain pointers or detect invalid hot-path reuse.
 All output zeroing/initialization is inside run. `max_chunk_edges` has no effect on
 B's arithmetic but must remain positive. Y cannot alias X/CSR.
 
-After actual A sources arrive, retain D's A source settings and add:
+The integrated build links the actual A, B and C libraries:
 
 ```bash
-cmake -S member_d -B member_d/build-ab \
-  -DD_ENABLE_A=ON \
-  -DD_A_SOURCES="$A_NONSCALAR_SOURCES" \
-  -DD_SCALAR_SOURCES="$A_SCALAR_SOURCE" \
-  -DD_ENABLE_B=ON \
-  -DD_B_SOURCES="$PWD/member_b/src/simd.cpp"
-cmake --build member_d/build-ab -j
+bash member_d/scripts/build_team.sh
+python3 member_d/scripts/run.py list
 ```
 
-`A_NONSCALAR_SOURCES` must be the semicolon-separated actual A source paths;
-`A_SCALAR_SOURCE` must be A's actual scalar-only translation unit. Neither is
-available in the inspected branches. Never substitute `tests/d_fixture_a.cpp`
-or D's `tests/fake_a.cpp` in an experiment build.
-
-For CMake consumers adding B and D together, define the shared contracts target
-only once; B checks for an existing target. D's existing source-list integration
-above works without changing D's CMake file.
+Test fixtures are only linked into explicitly named test executables.
 
 ## D integration evidence and review feedback
 
@@ -95,6 +83,5 @@ can round to zero on this host. D correctly rejects that duration. The B test us
 a larger fixture without altering D's timer or adding delays to production B.
 Formal very-small-call experiments still need D's documented batching support.
 
-Before formal results, the team still needs actual A generation/oracle, C scheduling,
-one agreed ISA/toolchain, D's tuning/freeze protocol and final profiling. B's local
-tile results are diagnostic; they do not freeze a Tf or Te for the team.
+The completed native campaign is archived under `member_d/evidence/apple-m4`.
+B's local tile results remain independent diagnostics.

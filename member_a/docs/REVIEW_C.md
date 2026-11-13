@@ -12,11 +12,11 @@
 
 C 的 split factory 为 descriptor、worker 分配索引和 partial vectors 分别保留空间。A 核对 partial 的逻辑数量 `C_s*f`，并检查报告的容量字节足以覆盖这些向量。排序、worker 分桶等 prepare 临时分配与返回时仍保留的数组具有不同的生命周期。D 的 smoke 字段 `validation_retained_bytes` 描述保留量，正式峰值核算还需计入这些临时对象。
 
-## 独立竞争诊断
+## 独立竞争诊断（历史提交）
 
 在 WSL x86_64 重新编译 A 测试和 C 的生产 adapter，启用 GCC ThreadSanitizer，并链接 LLVM 的 OpenMP 运行库。Archer 在日志中确认加载并标注 OpenMP 同步关系。CPU 为 Intel i7-11800H。C 的 x86 测试行内核用于检查调度写入，可独立于 ARM NEON 执行。边界用例及 hub 用例在 1、2、4、8 线程下完成，诊断未报告数据竞争。
 
-在安装了 GCC、LLVM libomp 和 Archer 的 Linux 环境可用以下方式复查。将 `OMP_LIB` 设为 libomp 的完整路径，将 `ARCHER_LIB` 设为 libarcher 的完整路径。运行时应看到 Archer 已启用的提示。
+以下命令只适用于上述历史提交，所用 x86 测试替身已从最终 ARM 项目中移除。在安装了 GCC、LLVM libomp 和 Archer 的 Linux 环境可检出对应历史版本复查。将 `OMP_LIB` 设为 libomp 的完整路径，将 `ARCHER_LIB` 设为 libarcher 的完整路径。运行时应看到 Archer 已启用的提示。
 
 ```sh
 cmake -S member_a -B member_a/build/race -DCMAKE_BUILD_TYPE=RelWithDebInfo \

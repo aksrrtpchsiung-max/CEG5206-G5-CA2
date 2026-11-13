@@ -5,6 +5,8 @@ Windows AMD64 workstation. They are **not** Member B's SIMD results: B's product
 source requires AArch64 NEON, so this run used `tests/portable_b_shim.cpp`, which
 implements the same overwrite ABI with a scalar feature loop.
 
+The test shim is preserved in commit `8a06e1b`; the final ARM build tests the real NEON kernel.
+
 Configuration:
 
 - MSVC 2022 17.14, C++17, `/O2 /openmp /fp:strict`;

@@ -57,53 +57,13 @@ if (!report.passed) throw std::runtime_error("scalar mismatch");
 
 ## 联调 B、C 的生产代码
 
-需要 B 的 AArch64 NEON 编译目标以及支持 OpenMP 的工具链。在已有合并工作树中，`TEAM` 指向含 `member_b`、`member_c`、`member_d` 的目录。若只检出了 A 分支，可用以下命令重建此次联调的只读快照。
+在项目根目录构建。测试直接链接 A、B、C 的生产库，覆盖 FP64 校验、chunk 审计及多线程输出。
 
 ```sh
-TEAM="$PWD/member_a/.work/team"
-mkdir -p "$TEAM"
-git archive 2c8f04f member_b | tar -xf - -C "$TEAM"
-git archive 8a06e1b member_c | tar -xf - -C "$TEAM"
-git archive e6921eb member_d | tar -xf - -C "$TEAM"
-mkdir -p "$TEAM/member_a"
-cp -R member_a/src member_a/include member_a/CMakeLists.txt "$TEAM/member_a/"
+bash member_d/scripts/build_team.sh
+ctest --test-dir build --output-on-failure -R 'a_'
+python3 member_d/scripts/demo.py --out results/demo
 ```
 
-在原生 AArch64 Linux 上直接构建。x86_64 Linux 可安装发行版提供的 AArch64 交叉编译器和 QEMU，在 configure 命令中额外传入 `-DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=aarch64 -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ '-DCMAKE_CROSSCOMPILING_EMULATOR=qemu-aarch64;-L;/usr/aarch64-linux-gnu'`。若工具链位于独立 sysroot，应使用其实际路径。
-
-```sh
-cmake -S member_a -B member_a/build/team -DCMAKE_BUILD_TYPE=Release \
-  -DA_B_SOURCE="$TEAM/member_b/src/simd.cpp" \
-  -DA_C_SOURCE="$TEAM/member_c/src/contract_adapter.cpp"
-cmake --build member_a/build/team -j4
-ctest --test-dir member_a/build/team --output-on-failure
-```
-
-C 的测试默认请求 1、2、4 个线程；另设 `A_TEST_PHYSICAL_CORES` 可加入机器实际使用的 P。核数 8 的此次联调覆盖 1、2、4、8。测试会先审计每个 split plan，再让各 variant 在同一 prepared state 上运行 X0 → X1 → X0。
-
-## D 的独立入口
-
-D 的 v0.1 将 scalar 编译成单独的 object target，其余 A 源文件直接加入 benchmark。在 **AArch64 Linux** 且 `TEAM` 指向上述目录时，命令如下。D 的入口采用 GCC / Clang 编译选项。
-
-```sh
-A="$PWD/member_a"
-D="$TEAM/member_d"
-BUILD="$A/build/d-team"
-OTHER="$A/src/validation.cpp;$A/src/csr.cpp;$A/src/generator.cpp;$A/src/oracle.cpp;$A/src/chunk_audit.cpp"
-cmake -S "$D" -B "$BUILD" -DCMAKE_BUILD_TYPE=Release \
-  -DD_ENABLE_A=ON -DD_A_SOURCES="$OTHER" -DD_SCALAR_SOURCES="$A/src/scalar.cpp" \
-  -DD_ENABLE_B=ON -DD_B_SOURCES="$TEAM/member_b/src/simd.cpp" \
-  -DD_ENABLE_C=ON -DD_C_SOURCES="$TEAM/member_c/src/contract_adapter.cpp" -DD_USE_OPENMP=ON
-cmake --build "$BUILD" --target benchmark -j4
-python3 "$D/scripts/run.py" list --binary "$BUILD/benchmark"
-```
-
-从 D 的 `configs/smoke.json` 复制一份，设置 `nodes=[1024]`、`mean_degrees=[8]`、`threads=[1,2]`、`max_chunk_edges=[16]`，并在 `variants` 中列出全部五个 ID。保留 `phase=smoke`、两种 family、三个 feature width 和原有种子。按实际机器填写 D 提供的 `hardware.example.json`，记录编译器和 flags，并用以下命令运行。每次指定一个新输出目录。
-
-```sh
-python3 "$D/scripts/run.py" run --binary "$BUILD/benchmark" \
-  --config "$BUILD/smoke.json" --metadata "$BUILD/hardware.json" \
-  --out "$A/out/d-team-run1"
-```
-
-本次在 x86_64 WSL 上使用 QEMU 启动 ARM benchmark，D 的 `--binary` 指向启动器。其 manifest 中单独保存 guest ELF 的 SHA-256。原生 ARM 机器直接传 benchmark 路径。每个 case 的两份 X 校验、验证摘要和定位见[联调记录](../evidence/team-smoke.csv)。
+测试默认使用 1、2、4 个线程；设置 `A_TEST_PHYSICAL_CORES` 可增加本机实际核数的用例。
+历史 QEMU 联调数据保存在 [team-smoke.csv](../evidence/team-smoke.csv)。
